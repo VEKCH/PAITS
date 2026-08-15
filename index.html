@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DAPSI · UCSH</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  html, body { margin: 0; padding: 0; background: #EDEAE1; }
+  #root { min-height: 100vh; }
+  .dapsi-app {
+    --bg: #EDEAE1; --surface: #FFFFFF; --surface-alt: #F5F3EC;
+    --ink: #23291F; --ink-soft: #5B6355; --line: #DAD5C7;
+    --accent: #2F5D50; --accent-soft: #DCE7DF;
+    --critico: #A83B3B; --critico-soft: #F3DEDD;
+    --urgente: #C17A2E; --urgente-soft: #F3E4D0;
+    --normal: #4C7A5E; --normal-soft: #DEEAE1;
+    font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); background: var(--bg);
+    min-height: 100vh; padding: 28px 20px 60px; box-sizing: border-box;
+  }
+  .dapsi-app * { box-sizing: border-box; }
+  .shell { max-width: 980px; margin: 0 auto; }
+  .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; }
+  .wordmark { display: flex; align-items: center; gap: 12px; }
+  .wordmark-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+  .wordmark h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+  .wordmark p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+  .userbox { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
+  .role-pill { background: var(--accent-soft); color: var(--accent); padding: 3px 9px; border-radius: 100px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  .link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 12.5px; padding: 0; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0; }
+  .tab-btn { font-family: 'Fraunces', serif; font-size: 13.5px; font-weight: 500; padding: 10px 16px 8px; border: 1px solid var(--line); border-bottom: none; background: var(--surface-alt); border-radius: 8px 8px 0 0; cursor: pointer; color: var(--ink-soft); position: relative; top: 1px; }
+  .tab-btn.active { background: var(--surface); color: var(--ink); border-color: var(--ink); box-shadow: 0 -2px 0 var(--accent) inset; }
+  .note { font-size: 12px; color: var(--ink-soft); background: var(--surface-alt); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 18px; }
+  .error-box { font-size: 12.5px; color: var(--critico); background: var(--critico-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin-bottom: 16px; }
+  .section-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--ink-soft); }
+  label.field span { font-weight: 500; }
+  input, textarea, select { font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--surface); width: 100%; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 64px; }
+  table.asistencia { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.asistencia th { text-align: left; font-weight: 500; color: var(--ink-soft); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 8px; }
+  table.asistencia td { padding: 4px 8px; vertical-align: middle; }
+  .presente-toggle { display: flex; gap: 4px; }
+  .presente-btn { border: 1px solid var(--line); background: var(--surface-alt); border-radius: 5px; padding: 4px 9px; font-size: 12px; cursor: pointer; color: var(--ink-soft); }
+  .presente-btn.on-si { background: var(--normal-soft); color: var(--normal); border-color: var(--normal); }
+  .presente-btn.on-no { background: var(--critico-soft); color: var(--critico); border-color: var(--critico); }
+  .icon-btn { background: none; border: none; cursor: pointer; color: var(--ink-soft); padding: 4px; border-radius: 5px; display: inline-flex; }
+  .icon-btn:hover { background: var(--surface-alt); color: var(--critico); }
+  .add-row-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; margin-top: 8px; }
+  .asistencia-resumen { font-size: 11.5px; color: var(--ink-soft); margin-top: 6px; }
+  .dificultades-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .campo-sn { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface-alt); border-radius: 6px; padding: 8px 10px; }
+  .campo-sn-btns { display: flex; gap: 4px; }
+  .sn-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--ink-soft); }
+  .sn-btn-on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .submit-btn { font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 12px 22px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .submit-btn:disabled { opacity: 0.6; cursor: default; }
+  .secondary-btn { font-family: 'IBM Plex Sans'; font-weight: 500; font-size: 13px; background: var(--surface-alt); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 100px; }
+  .badge-critico { background: var(--critico-soft); color: var(--critico); }
+  .badge-urgente { background: var(--urgente-soft); color: var(--urgente); }
+  .badge-normal { background: var(--normal-soft); color: var(--normal); }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat-box { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; }
+  .stat-num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 500; }
+  .stat-label { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+  .filtros { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .search-box { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; flex: 1; min-width: 180px; }
+  .search-box input { border: none; padding: 0; }
+  .search-box input:focus { outline: none; }
+  .toggle-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 8px 14px; font-size: 12.5px; cursor: pointer; color: var(--ink-soft); }
+  .toggle-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .grupo-header { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; margin: 20px 0 8px; padding: 10px 14px; background: var(--surface-alt); border: 1px solid var(--line); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .grupo-meta { font-family: 'IBM Plex Sans'; font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+  .caso-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; position: relative; }
+  .caso-tab { position: absolute; top: 0; left: 0; width: 5px; height: 100%; }
+  .tab-critico { background: var(--critico); }
+  .tab-urgente { background: var(--urgente); }
+  .tab-normal { background: var(--normal); }
+  .caso-head { padding: 14px 16px 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; flex-wrap: wrap; }
+  .caso-head-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .caso-tutor { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; }
+  .caso-meta { font-size: 11.5px; color: var(--ink-soft); font-family: 'IBM Plex Mono', monospace; }
+  .caso-excerpt { font-size: 12.5px; color: var(--ink-soft); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .caso-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .estado-pill { font-size: 11.5px; padding: 4px 9px; border-radius: 100px; background: var(--surface-alt); color: var(--ink-soft); border: 1px solid var(--line); }
+  .asistencia-pill { font-size: 11.5px; padding: 4px 9px; border-radius: 100px; background: var(--accent-soft); color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
+  .caso-body { padding: 4px 20px 20px; border-top: 1px solid var(--line); background: var(--surface-alt); }
+  .caso-body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
+  @media (max-width: 640px) { .caso-body-grid { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(2,1fr); } }
+  .caso-body h4 { font-family: 'Fraunces', serif; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); margin: 0 0 6px; }
+  .caso-body p { font-size: 13px; margin: 0 0 10px; line-height: 1.5; }
+  .asist-list { font-size: 12.5px; margin: 0; padding-left: 16px; }
+  .edit-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .edit-row select, .edit-row input { max-width: 260px; }
+  .nota-item { font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }
+  .nota-fecha { color: var(--ink-soft); font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; display: block; margin-top: 3px; }
+  .nota-add { display: flex; gap: 8px; margin-top: 8px; }
+  .nota-add input { flex: 1; }
+  .nota-add button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0 12px; cursor: pointer; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--ink-soft); }
+  .empty-state h3 { font-family: 'Fraunces', serif; color: var(--ink); font-size: 17px; margin-bottom: 6px; }
+  .delete-caso { color: var(--critico); }
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 32px; width: 340px; }
+  .login-card h1 { font-family: 'Fraunces', serif; font-size: 22px; margin: 0 0 4px; }
+  .login-card p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 20px; }
+  .login-card label { display: block; font-size: 12.5px; margin-bottom: 12px; }
+  .login-card label span { display: block; margin-bottom: 4px; font-weight: 500; }
+  table.simple { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.simple th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--ink-soft); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.simple td { padding: 8px; border-bottom: 1px solid var(--line); }
+  .pill-activo { background: var(--normal-soft); color: var(--normal); padding: 2px 8px; border-radius: 100px; font-size: 11px; }
+  .pill-inactivo { background: var(--critico-soft); color: var(--critico); padding: 2px 8px; border-radius: 100px; font-size: 11px; }
+  .material-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: var(--surface); flex-wrap: wrap; gap: 8px; }
+  .material-name { font-weight: 500; font-size: 13.5px; }
+  .material-meta { font-size: 11.5px; color: var(--ink-soft); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(35,41,31,0.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal-box { background: var(--surface); border-radius: 10px; padding: 24px; width: 320px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+function Ic({ children, size = 16 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>;
+}
+const IconFile = (p) => <Ic {...p}><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></Ic>;
+const IconAlert = (p) => <Ic {...p}><path d="M12 3 2 20h20L12 3z"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12" y2="17.01"/></Ic>;
+const IconCheck = (p) => <Ic {...p}><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></Ic>;
+const IconPlus = (p) => <Ic {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Ic>;
+const IconTrash = (p) => <Ic {...p}><path d="M4 6h16"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></Ic>;
+const IconSearch = (p) => <Ic {...p}><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></Ic>;
+const IconDown = (p) => <Ic {...p}><polyline points="6 9 12 15 18 9"/></Ic>;
+const IconUp = (p) => <Ic {...p}><polyline points="18 15 12 9 6 15"/></Ic>;
+const IconLoader = (p) => <Ic {...p}><path d="M21 12a9 9 0 1 1-9-9"/></Ic>;
+const IconFolder = (p) => <Ic {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H5z"/><path d="M3 8l1.5 11h15L21 8"/></Ic>;
+const IconSave = (p) => <Ic {...p}><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v6h8V4"/></Ic>;
+const IconMsg = (p) => <Ic {...p}><path d="M21 12a8 8 0 1 1-4-6.9"/><path d="M13 3v6"/><path d="M10 6h6"/></Ic>;
+const IconShield = (p) => <Ic {...p}><path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16.01"/></Ic>;
+const IconInbox = (p) => <Ic {...p}><path d="M4 4l2 10h12l2-10"/><path d="M9 14a3 3 0 0 0 6 0"/></Ic>;
+const IconDownload = (p) => <Ic {...p}><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></Ic>;
+const IconUpload = (p) => <Ic {...p}><path d="M12 21V9"/><path d="m7 13 5-5 5 5"/><path d="M5 21h14"/></Ic>;
+
+const ESTADOS = ["Pendiente de revisión", "Derivado", "En proceso", "Resuelto", "Cerrado sin derivación"];
+const URGENCIA_ORDEN = { "Crítico": 0, "Urgente": 1, "Normal": 2 };
+
+let CSRF_TOKEN = null;
+
+async function api(path, opts = {}) {
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (CSRF_TOKEN) headers["X-CSRF-Token"] = CSRF_TOKEN;
+  const res = await fetch(path, { ...opts, headers });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data && data.error) || "Error de red");
+  if (data && data.csrfToken) CSRF_TOKEN = data.csrfToken;
+  return data;
+}
+
+// Para subidas con FormData (no pasan por api()): construye las cabeceras con el token CSRF.
+function cabecerasCsrf() {
+  return CSRF_TOKEN ? { "X-CSRF-Token": CSRF_TOKEN } : {};
+}
+
+function nuevoIdLocal() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+const initialForm = () => ({
+  jornada: "", fecha: "", modalidad: "", sesion: "", tutorUsername: "", grupoId: "",
+  asistencia: [{ id: nuevoIdLocal(), nombre: "", presente: true, observacion: "" }],
+  temas: "", situaciones: "",
+  dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" },
+  seguimiento: { comoSeSintio: "", recursosSuficientes: "", logroManejarDudas: "", necesitaApoyo: "", comentariosCoordinador: "" },
+  urgencia: "",
+});
+
+function UrgenciaBadge({ nivel }) {
+  const map = { "Crítico": { cls: "badge-critico", I: IconShield }, "Urgente": { cls: "badge-urgente", I: IconAlert }, "Normal": { cls: "badge-normal", I: IconCheck } };
+  const c = map[nivel] || map["Normal"];
+  const I = c.I;
+  return <span className={`badge ${c.cls}`}><I size={13} />{nivel}</span>;
+}
+function CampoSiNo({ label, value, onChange }) {
+  return (
+    <div className="campo-sn">
+      <span>{label}</span>
+      <div className="campo-sn-btns">
+        {["Sí", "No"].map((op) => <button type="button" key={op} className={`sn-btn ${value === op ? "sn-btn-on" : ""}`} onClick={() => onChange(op)}>{op}</button>)}
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  async function enviar(e) {
+    e.preventDefault();
+    setCargando(true); setError("");
+    try {
+      const user = await api("/api/login", { method: "POST", body: JSON.stringify({ username, password }) });
+      onLogin(user);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  return (
+    <div className="dapsi-app login-wrap">
+      <div className="login-card">
+        <h1>DAPSI · UCSH</h1>
+        <p>Inicia sesión para continuar</p>
+        {error && <div className="error-box">{error}</div>}
+        <form onSubmit={enviar}>
+          <label><span>Usuario</span><input value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
+          <label><span>Clave</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+          <button className="submit-btn" style={{ width: "100%", justifyContent: "center" }} disabled={cargando}>{cargando ? "Ingresando…" : "Ingresar"}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CambiarPasswordModal({ onClose }) {
+  const [actual, setActual] = useState(""); const [nueva, setNueva] = useState(""); const [msg, setMsg] = useState("");
+  async function enviar(e) {
+    e.preventDefault();
+    try { await api("/api/me/password", { method: "POST", body: JSON.stringify({ actual, nueva }) }); setMsg("Clave actualizada."); setActual(""); setNueva(""); }
+    catch (e) { setMsg(e.message); }
+  }
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <h3 className="section-title" style={{ border: "none" }}>Cambiar clave</h3>
+        {msg && <div className="note">{msg}</div>}
+        <form onSubmit={enviar}>
+          <label className="field" style={{ marginBottom: 10 }}><span>Clave actual</span><input type="password" value={actual} onChange={(e) => setActual(e.target.value)} required /></label>
+          <label className="field" style={{ marginBottom: 14 }}><span>Nueva clave (mín. 6 caracteres)</span><input type="password" value={nueva} onChange={(e) => setNueva(e.target.value)} required /></label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="submit-btn" type="submit">Guardar</button>
+            <button type="button" className="secondary-btn" onClick={onClose}>Cerrar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(undefined);
+  const [vista, setVista] = useState("dashboard");
+  const [fichas, setFichas] = useState([]);
+  const [tutores, setTutores] = useState([]);
+  const [materiales, setMateriales] = useState([]);
+  const [grupos, setGrupos] = useState([]);
+  const [estudiantes, setEstudiantes] = useState([]);
+  const [fichasPersonales, setFichasPersonales] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [form, setForm] = useState(initialForm());
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [errorForm, setErrorForm] = useState("");
+  const [expandido, setExpandido] = useState(null);
+  const [filtroUrgencia, setFiltroUrgencia] = useState("Todas");
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
+  const [busqueda, setBusqueda] = useState("");
+  const [agrupar, setAgrupar] = useState(true);
+  const [notaTexto, setNotaTexto] = useState({});
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+
+  useEffect(() => {
+    api("/api/me").then(setUser).catch(() => setUser(null));
+  }, []);
+
+  const cargarTodo = useCallback(async () => {
+    setCargando(true);
+    try {
+      const [f, m, g, e, fp] = await Promise.all([
+        api("/api/fichas"), api("/api/materiales"), api("/api/grupos"), api("/api/estudiantes"), api("/api/fichas-personales"),
+      ]);
+      setFichas(f); setMateriales(m); setGrupos(g); setEstudiantes(e); setFichasPersonales(fp);
+      if (user && user.role === "director") setTutores(await api("/api/tutores"));
+    } catch (e) {}
+    setCargando(false);
+  }, [user]);
+
+  useEffect(() => { if (user) cargarTodo(); }, [user, cargarTodo]);
+
+  if (user === undefined) return <div className="dapsi-app"><div className="shell">Cargando…</div></div>;
+  if (user === null) return <LoginScreen onLogin={setUser} />;
+
+  async function cerrarSesion() { await api("/api/logout", { method: "POST" }); setUser(null); }
+
+  function actualizarAsistencia(id, campo, valor) {
+    setForm((f) => ({ ...f, asistencia: f.asistencia.map((a) => (a.id === id ? { ...a, [campo]: valor } : a)) }));
+  }
+  function agregarFilaAsistencia() { setForm((f) => ({ ...f, asistencia: [...f.asistencia, { id: nuevoIdLocal(), nombre: "", presente: true, observacion: "" }] })); }
+  function quitarFilaAsistencia(id) { setForm((f) => ({ ...f, asistencia: f.asistencia.filter((a) => a.id !== id) })); }
+  function cargarAsistenciaDesdeGrupo(grupoId) {
+    if (!grupoId) return;
+    const g = grupos.find((x) => x.id === grupoId);
+    if (!g) return;
+    setForm((f) => ({
+      ...f,
+      grupoId: g.id,
+      asistencia: g.estudiantes.map((e) => ({ id: nuevoIdLocal(), nombre: e.nombre, presente: true, observacion: "" })),
+    }));
+  }
+
+  async function enviarFicha(e) {
+    e.preventDefault();
+    setErrorForm("");
+    if (!form.urgencia) { setErrorForm("Selecciona un nivel de urgencia."); return; }
+    if (user.role === "director" && !form.tutorUsername) { setErrorForm("Selecciona a qué tutor/a corresponde esta ficha."); return; }
+    setEnviando(true);
+    try {
+      const ficha = await api("/api/fichas", { method: "POST", body: JSON.stringify(form) });
+      setResultado(ficha);
+      cargarTodo();
+    } catch (e) { setErrorForm(e.message); }
+    setEnviando(false);
+  }
+  function nuevaFicha() { setForm(initialForm()); setResultado(null); setErrorForm(""); setVista("form"); }
+
+  async function actualizarCaso(id, cambios) {
+    const f = await api(`/api/fichas/${id}`, { method: "PATCH", body: JSON.stringify(cambios) });
+    setFichas((lista) => lista.map((x) => (x.id === id ? { ...x, ...f } : x)));
+  }
+  async function agregarNota(id) {
+    const texto = (notaTexto[id] || "").trim();
+    if (!texto) return;
+    const f = await api(`/api/fichas/${id}/notas`, { method: "POST", body: JSON.stringify({ texto }) });
+    setFichas((lista) => lista.map((x) => (x.id === id ? f : x)));
+    setNotaTexto((n) => ({ ...n, [id]: "" }));
+  }
+  async function eliminarCaso(id) { await api(`/api/fichas/${id}`, { method: "DELETE" }); setFichas((l) => l.filter((f) => f.id !== id)); }
+
+  const fichasFiltradas = fichas
+    .filter((f) => filtroUrgencia === "Todas" || f.urgencia === filtroUrgencia)
+    .filter((f) => filtroEstado === "Todos" || f.estadoProcedimiento === filtroEstado)
+    .filter((f) => {
+      if (!busqueda.trim()) return true;
+      const t = busqueda.toLowerCase();
+      return (f.tutor || "").toLowerCase().includes(t) || (f.situaciones || "").toLowerCase().includes(t);
+    })
+    .sort((a, b) => URGENCIA_ORDEN[a.urgencia] - URGENCIA_ORDEN[b.urgencia] || new Date(b.creadoEn) - new Date(a.creadoEn));
+
+  const stats = {
+    total: fichas.length,
+    critico: fichas.filter((f) => f.urgencia === "Crítico").length,
+    urgente: fichas.filter((f) => f.urgencia === "Urgente").length,
+    pendientes: fichas.filter((f) => f.estadoProcedimiento === "Pendiente de revisión").length,
+  };
+
+  function FichaCard({ f }) {
+    const tabClass = f.urgencia === "Crítico" ? "tab-critico" : f.urgencia === "Urgente" ? "tab-urgente" : "tab-normal";
+    const abierto = expandido === f.id;
+    const esDirector = user.role === "director";
+    return (
+      <div className="caso-card">
+        <div className={`caso-tab ${tabClass}`} />
+        <div className="caso-head" onClick={() => setExpandido(abierto ? null : f.id)}>
+          <div className="caso-head-left">
+            <span className="caso-tutor">{f.tutor || "Tutor/a sin nombre"} <span style={{ color: "var(--ink-soft)", fontWeight: 400, fontSize: 12.5 }}>· Sesión {f.sesion || "—"}</span></span>
+            <span className="caso-meta">{f.fecha || "sin fecha"} · {f.jornada || "sin jornada"} · {f.modalidad || "sin modalidad"}</span>
+            <span className="caso-excerpt">{f.situaciones || f.temas || "Sin descripción registrada."}</span>
+          </div>
+          <div className="caso-head-right">
+            <UrgenciaBadge nivel={f.urgencia} />
+            {f.porcentajeAsistencia !== null && f.porcentajeAsistencia !== undefined && <span className="asistencia-pill">Asistencia {f.porcentajeAsistencia}%</span>}
+            {esDirector && <span className="estado-pill">{f.estadoProcedimiento}</span>}
+            {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
+          </div>
+        </div>
+        {abierto && (
+          <div className="caso-body">
+            <div className="caso-body-grid">
+              <div>
+                <h4>Temas abordados</h4><p>{f.temas || "—"}</p>
+                <h4>Situaciones y solicitudes</h4><p>{f.situaciones || "—"}</p>
+                <h4>Asistencia ({(f.asistencia||[]).filter((a) => a.presente).length}/{(f.asistencia||[]).length} presentes{f.porcentajeAsistencia !== null && f.porcentajeAsistencia !== undefined ? ` · ${f.porcentajeAsistencia}%` : ""})</h4>
+                <ul className="asist-list">{(f.asistencia||[]).map((a) => (<li key={a.id}>{a.nombre || "(sin nombre)"} — {a.presente ? "presente" : "ausente"}{a.observacion ? ` · ${a.observacion}` : ""}</li>))}</ul>
+              </div>
+              {esDirector && (
+                <div>
+                  <h4>Procedimiento / derivación actual</h4>
+                  <div className="edit-row"><input value={f.procedimientoActual || ""} onChange={(e) => actualizarCaso(f.id, { procedimientoActual: e.target.value })} placeholder="Ej: Derivado a Oficina de Género" /></div>
+                  <div className="edit-row">
+                    <select value={f.estadoProcedimiento} onChange={(e) => actualizarCaso(f.id, { estadoProcedimiento: e.target.value })}>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+                    <select value={f.urgencia} onChange={(e) => actualizarCaso(f.id, { urgencia: e.target.value })}>
+                      <option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
+                    </select>
+                  </div>
+                  <h4>Notas de seguimiento</h4>
+                  {(f.notas||[]).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
+                  {(f.notas||[]).map((n, i) => (<div className="nota-item" key={i}>{n.texto}<span className="nota-fecha">{n.autor ? n.autor + " · " : ""}{new Date(n.fecha).toLocaleString("es-CL")}</span></div>))}
+                  <div className="nota-add">
+                    <input placeholder="Ej: se solucionó mediante derivación a Oficina de Género" value={notaTexto[f.id] || ""} onChange={(e) => setNotaTexto((n) => ({ ...n, [f.id]: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && agregarNota(f.id)} />
+                    <button type="button" onClick={() => agregarNota(f.id)}><IconMsg size={15} /></button>
+                  </div>
+                  <button type="button" className="icon-btn delete-caso" style={{ marginTop: 14 }} onClick={() => eliminarCaso(f.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar ficha</span></button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function agruparPorTutor() {
+    const map = {};
+    fichasFiltradas.forEach((f) => { (map[f.tutor || "Sin tutor"] = map[f.tutor || "Sin tutor"] || []).push(f); });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
+  return (
+    <div className="dapsi-app">
+      <div className="shell">
+        <div className="header">
+          <div className="wordmark">
+            <div className="wordmark-icon"><IconFolder size={20} /></div>
+            <div><h1>DAPSI · UCSH</h1><p>Acompañamiento Inicial en Trabajo Social</p></div>
+          </div>
+          <div className="userbox">
+            <span>{user.nombre}</span><span className="role-pill">{user.role}</span>
+            <button className="link-btn" onClick={() => setMostrarPassword(true)}>Cambiar clave</button>
+            <button className="link-btn" onClick={cerrarSesion}>Cerrar sesión</button>
+          </div>
+        </div>
+
+        <div className="tabs">
+          <button className={`tab-btn ${vista === "dashboard" ? "active" : ""}`} onClick={() => setVista("dashboard")}>{user.role === "director" ? "Panel de casos" : "Mis fichas"}</button>
+          <button className={`tab-btn ${vista === "form" ? "active" : ""}`} onClick={nuevaFicha}>Nueva ficha</button>
+          <button className={`tab-btn ${vista === "materiales" ? "active" : ""}`} onClick={() => setVista("materiales")}>Materiales</button>
+          <button className={`tab-btn ${vista === "grupos" ? "active" : ""}`} onClick={() => setVista("grupos")}>Grupos</button>
+          <button className={`tab-btn ${vista === "fichapersonal" ? "active" : ""}`} onClick={() => setVista("fichapersonal")}>Ficha personal</button>
+          {user.role === "director" && <button className={`tab-btn ${vista === "estudiantes" ? "active" : ""}`} onClick={() => setVista("estudiantes")}>Estudiantes</button>}
+          {user.role === "director" && <button className={`tab-btn ${vista === "tutores" ? "active" : ""}`} onClick={() => setVista("tutores")}>Tutores</button>}
+          {user.role === "director" && <button className={`tab-btn ${vista === "excel" ? "active" : ""}`} onClick={() => setVista("excel")}>Excel</button>}
+        </div>
+
+        {user.role === "tutor" && <div className="note">No tienes acceso a la información de derivaciones ni al estado de gestión de los casos — eso lo administra el equipo director.</div>}
+
+        {mostrarPassword && <CambiarPasswordModal onClose={() => setMostrarPassword(false)} />}
+
+        {vista === "form" && (
+          <form onSubmit={enviarFicha}>
+            {errorForm && <div className="error-box">{errorForm}</div>}
+            <div className="card">
+              <h3 className="section-title">Datos de la sesión</h3>
+              <div className="grid">
+                {user.role === "director" ? (
+                  <label className="field"><span>Tutor/a par</span>
+                    <select required value={form.tutorUsername} onChange={(e) => setForm({ ...form, tutorUsername: e.target.value })}>
+                      <option value="">Seleccionar…</option>
+                      {tutores.filter((t) => t.activo).map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <label className="field"><span>Tutor/a par</span><input disabled value={user.nombre} /></label>
+                )}
+                <label className="field"><span>Jornada</span><input value={form.jornada} onChange={(e) => setForm({ ...form, jornada: e.target.value })} /></label>
+                <label className="field"><span>Fecha</span><input type="date" required value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></label>
+                <label className="field"><span>Modalidad</span>
+                  <select value={form.modalidad} onChange={(e) => setForm({ ...form, modalidad: e.target.value })}>
+                    <option value="">Seleccionar</option><option value="Presencial">Presencial</option><option value="Online">Online</option><option value="Mixta">Mixta</option>
+                  </select>
+                </label>
+                <label className="field"><span>N° de sesión</span><input value={form.sesion} onChange={(e) => setForm({ ...form, sesion: e.target.value })} /></label>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3 className="section-title">Asistencia</h3>
+              {(() => {
+                const gruposDisponibles = user.role === "tutor" ? grupos : grupos.filter((g) => g.tutorUsername === form.tutorUsername);
+                return (
+                  <div className="edit-row" style={{ marginBottom: 10 }}>
+                    <select style={{ maxWidth: 280 }} value={form.grupoId || ""} onChange={(e) => cargarAsistenciaDesdeGrupo(e.target.value)}>
+                      <option value="">Cargar lista desde un grupo…</option>
+                      {gruposDisponibles.map((g) => <option key={g.id} value={g.id}>{g.nombre} ({g.estudiantes.length})</option>)}
+                    </select>
+                    <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                      {gruposDisponibles.length === 0 ? 'Crea un grupo en la pestaña "Grupos" para no escribir la lista cada vez.' : "Se reemplaza la lista actual por la del grupo."}
+                    </span>
+                  </div>
+                );
+              })()}
+              <table className="asistencia">
+                <thead><tr><th style={{ width: "35%" }}>Estudiante</th><th style={{ width: "20%" }}>Presente</th><th>Observación</th><th></th></tr></thead>
+                <tbody>
+                  {form.asistencia.map((a) => (
+                    <tr key={a.id}>
+                      <td><input placeholder="Nombre" value={a.nombre} onChange={(e) => actualizarAsistencia(a.id, "nombre", e.target.value)} /></td>
+                      <td><div className="presente-toggle">
+                        <button type="button" className={`presente-btn ${a.presente ? "on-si" : ""}`} onClick={() => actualizarAsistencia(a.id, "presente", true)}>Sí</button>
+                        <button type="button" className={`presente-btn ${!a.presente ? "on-no" : ""}`} onClick={() => actualizarAsistencia(a.id, "presente", false)}>No</button>
+                      </div></td>
+                      <td><input placeholder="Observación (opcional)" value={a.observacion} onChange={(e) => actualizarAsistencia(a.id, "observacion", e.target.value)} /></td>
+                      <td><button type="button" className="icon-btn" onClick={() => quitarFilaAsistencia(a.id)}><IconTrash size={15} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button type="button" className="add-row-btn" onClick={agregarFilaAsistencia}><IconPlus size={14} /> Agregar estudiante</button>
+              <div className="asistencia-resumen">
+                Presentes: {form.asistencia.filter((a) => a.presente).length} · Ausentes: {form.asistencia.filter((a) => !a.presente).length} · Total: {form.asistencia.length}
+                {form.asistencia.length > 0 && ` · Asistencia: ${Math.round((form.asistencia.filter((a) => a.presente).length / form.asistencia.length) * 1000) / 10}%`}
+              </div>
+            </div>
+
+            <div className="card">
+              <h3 className="section-title">Desarrollo de la sesión</h3>
+              <label className="field" style={{ marginBottom: 12 }}><span>Temas abordados</span><textarea value={form.temas} onChange={(e) => setForm({ ...form, temas: e.target.value })} /></label>
+              <label className="field"><span>Situaciones relevantes, acuerdos y solicitudes de estudiantes</span><textarea value={form.situaciones} onChange={(e) => setForm({ ...form, situaciones: e.target.value })} /></label>
+            </div>
+
+            <div className="card">
+              <h3 className="section-title">Dificultades detectadas</h3>
+              <div className="dificultades-grid">
+                <CampoSiNo label="Académica" value={form.dificultades.academica ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, academica: v === "Sí" } })} />
+                <CampoSiNo label="Emocional / psicosocial" value={form.dificultades.emocional ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, emocional: v === "Sí" } })} />
+                <CampoSiNo label="Social o de integración" value={form.dificultades.social ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, social: v === "Sí" } })} />
+                <CampoSiNo label="Desconocimiento de trámites/servicios" value={form.dificultades.tramites ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, tramites: v === "Sí" } })} />
+                <CampoSiNo label="Otra" value={form.dificultades.otra ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, otra: v === "Sí" } })} />
+              </div>
+              {form.dificultades.otra && <label className="field" style={{ marginTop: 10 }}><span>Detalle de "otra" dificultad</span><input value={form.dificultades.otraTexto} onChange={(e) => setForm({ ...form, dificultades: { ...form.dificultades, otraTexto: e.target.value } })} /></label>}
+            </div>
+
+            <div className="card">
+              <h3 className="section-title">Seguimiento</h3>
+              <label className="field" style={{ marginBottom: 12 }}><span>¿Cómo se sintió el/la tutor/a en esta sesión?</span><textarea value={form.seguimiento.comoSeSintio} onChange={(e) => setForm({ ...form, seguimiento: { ...form.seguimiento, comoSeSintio: e.target.value } })} /></label>
+              <div className="dificultades-grid" style={{ marginBottom: 12 }}>
+                <CampoSiNo label="¿Tuviste recursos suficientes?" value={form.seguimiento.recursosSuficientes} onChange={(v) => setForm({ ...form, seguimiento: { ...form.seguimiento, recursosSuficientes: v } })} />
+                <CampoSiNo label="¿Lograste manejar las dudas?" value={form.seguimiento.logroManejarDudas} onChange={(v) => setForm({ ...form, seguimiento: { ...form.seguimiento, logroManejarDudas: v } })} />
+                <CampoSiNo label="¿Necesitas apoyo del equipo coordinador?" value={form.seguimiento.necesitaApoyo} onChange={(v) => setForm({ ...form, seguimiento: { ...form.seguimiento, necesitaApoyo: v } })} />
+              </div>
+              <label className="field"><span>Comentarios o solicitudes al equipo coordinador</span><textarea value={form.seguimiento.comentariosCoordinador} onChange={(e) => setForm({ ...form, seguimiento: { ...form.seguimiento, comentariosCoordinador: e.target.value } })} /></label>
+            </div>
+
+            <div className="card">
+              <h3 className="section-title">Clasificación de la solicitud</h3>
+              <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Selecciona manualmente el nivel de urgencia de este caso.</p>
+              <div className="dificultades-grid">
+                {["Normal", "Urgente", "Crítico"].map((op) => (
+                  <button type="button" key={op} onClick={() => setForm({ ...form, urgencia: op })}
+                    className="campo-sn" style={{ justifyContent: "center", cursor: "pointer", border: form.urgencia === op ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
+                    <UrgenciaBadge nivel={op} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button type="submit" className="submit-btn" disabled={enviando}>
+              {enviando ? <><IconLoader size={16} className="spin" /> Guardando…</> : <><IconSave size={16} /> Guardar ficha</>}
+            </button>
+
+            {resultado && (
+              <div className="card" style={{ marginTop: 16 }}>
+                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Ficha guardada correctamente con nivel:</span>{" "}
+                <UrgenciaBadge nivel={resultado.urgencia} />
+                <div><button type="button" className="link-btn" style={{ marginTop: 10 }} onClick={() => { setVista("dashboard"); setExpandido(resultado.id); }}>Ver en el panel →</button></div>
+              </div>
+            )}
+          </form>
+        )}
+
+        {vista === "dashboard" && (
+          <div>
+            <div className="stats-row">
+              <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Casos totales</div></div>
+              <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{stats.critico}</div><div className="stat-label">Críticos</div></div>
+              <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{stats.urgente}</div><div className="stat-label">Urgentes</div></div>
+              {user.role === "director" ? (
+                <div className="stat-box"><div className="stat-num">{stats.pendientes}</div><div className="stat-label">Pendientes de revisión</div></div>
+              ) : (
+                <div className="stat-box"><div className="stat-num">{fichas.length ? Math.round((fichas.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / fichas.length) * 10) / 10 : 0}%</div><div className="stat-label">Asistencia promedio</div></div>
+              )}
+            </div>
+
+            <div className="filtros">
+              <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
+              <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
+                <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
+              </select>
+              {user.role === "director" && (
+                <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{ width: "auto" }}>
+                  <option value="Todos">Todo estado</option>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              {user.role === "director" && <button type="button" className={`toggle-btn ${agrupar ? "on" : ""}`} onClick={() => setAgrupar(!agrupar)}>Agrupar por tutor/a</button>}
+            </div>
+
+            {cargando && <div className="empty-state">Cargando…</div>}
+            {!cargando && fichasFiltradas.length === 0 && (
+              <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay fichas para mostrar</h3><p>{fichas.length === 0 ? 'Crea la primera desde "Nueva ficha".' : "Ajusta los filtros o la búsqueda."}</p></div>
+            )}
+
+            {!cargando && user.role === "director" && agrupar
+              ? agruparPorTutor().map(([tutor, lista]) => {
+                  const prom = lista.length ? Math.round((lista.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / lista.length) * 10) / 10 : 0;
+                  return (
+                    <div key={tutor}>
+                      <div className="grupo-header">
+                        <span>{tutor}</span>
+                        <span className="grupo-meta">{lista.length} sesión(es) · asistencia promedio {prom}%</span>
+                      </div>
+                      {lista.map((f) => <FichaCard key={f.id} f={f} />)}
+                    </div>
+                  );
+                })
+              : fichasFiltradas.map((f) => <FichaCard key={f.id} f={f} />)}
+          </div>
+        )}
+
+        {vista === "materiales" && <MaterialesPanel user={user} materiales={materiales} recargar={cargarTodo} />}
+        {vista === "grupos" && <GruposPanel user={user} grupos={grupos} tutores={tutores} recargar={cargarTodo} />}
+        {vista === "fichapersonal" && <FichaPersonalPanel user={user} estudiantes={estudiantes} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
+        {vista === "estudiantes" && user.role === "director" && <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
+        {vista === "tutores" && user.role === "director" && <TutoresPanel tutores={tutores} recargar={cargarTodo} />}
+        {vista === "excel" && user.role === "director" && <ExcelPanel recargar={cargarTodo} />}
+      </div>
+    </div>
+  );
+}
+
+function MaterialesPanel({ user, materiales, recargar }) {
+  const [archivo, setArchivo] = useState(null);
+  const [nombre, setNombre] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState("");
+
+  async function subir(e) {
+    e.preventDefault();
+    if (!archivo) return;
+    setSubiendo(true); setError("");
+    const fd = new FormData();
+    fd.append("archivo", archivo);
+    fd.append("nombre", nombre || archivo.name);
+    try {
+      const res = await fetch("/api/materiales", { method: "POST", body: fd, headers: cabecerasCsrf() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al subir");
+      setArchivo(null); setNombre("");
+      recargar();
+    } catch (e) { setError(e.message); }
+    setSubiendo(false);
+  }
+  async function eliminar(id) { await api(`/api/materiales/${id}`, { method: "DELETE" }); recargar(); }
+
+  return (
+    <div>
+      {user.role === "director" && (
+        <div className="card">
+          <h3 className="section-title">Subir material</h3>
+          {error && <div className="error-box">{error}</div>}
+          <form onSubmit={subir}>
+            <div className="grid" style={{ marginBottom: 12 }}>
+              <label className="field"><span>Nombre a mostrar</span><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Opcional" /></label>
+              <label className="field"><span>Archivo (pdf, doc, ppt, xls…)</span><input type="file" onChange={(e) => setArchivo(e.target.files[0])} required /></label>
+            </div>
+            <button className="submit-btn" disabled={subiendo}><IconUpload size={16} /> {subiendo ? "Subiendo…" : "Subir material"}</button>
+          </form>
+        </div>
+      )}
+      <div className="card">
+        <h3 className="section-title">Documentos y presentaciones</h3>
+        {materiales.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>Aún no hay materiales.</p>}
+        {materiales.map((m) => (
+          <div className="material-item" key={m.id}>
+            <div><div className="material-name">{m.nombre}</div><div className="material-meta">Subido por {m.subidoPor} · {new Date(m.fecha).toLocaleDateString("es-CL")} · {(m.tamano / 1024).toFixed(0)} KB</div></div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a className="secondary-btn" href={`/api/materiales/${m.id}/descargar`}><IconDownload size={14} /> Descargar</a>
+              {user.role === "director" && <button className="icon-btn delete-caso" onClick={() => eliminar(m.id)}><IconTrash size={15} /></button>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TutoresPanel({ tutores, recargar }) {
+  const [username, setUsername] = useState(""); const [nombre, setNombre] = useState(""); const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  async function crear(e) {
+    e.preventDefault(); setError("");
+    try { await api("/api/tutores", { method: "POST", body: JSON.stringify({ username, nombre, password }) }); setUsername(""); setNombre(""); setPassword(""); recargar(); }
+    catch (e) { setError(e.message); }
+  }
+  async function toggleActivo(t) { await api(`/api/tutores/${t.id}`, { method: "PATCH", body: JSON.stringify({ activo: !t.activo }) }); recargar(); }
+  async function eliminar(id) { await api(`/api/tutores/${id}`, { method: "DELETE" }); recargar(); }
+  async function resetPassword(t) {
+    const nueva = prompt(`Nueva clave para ${t.nombre}:`);
+    if (!nueva) return;
+    await api(`/api/tutores/${t.id}`, { method: "PATCH", body: JSON.stringify({ password: nueva }) });
+    alert("Clave actualizada.");
+  }
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Agregar tutor/a</h3>
+        {error && <div className="error-box">{error}</div>}
+        <form onSubmit={crear}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Nombre completo</span><input value={nombre} onChange={(e) => setNombre(e.target.value)} required /></label>
+            <label className="field"><span>Usuario</span><input value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
+            <label className="field"><span>Clave inicial</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+          </div>
+          <button className="submit-btn"><IconPlus size={16} /> Crear cuenta de tutor/a</button>
+        </form>
+      </div>
+      <div className="card">
+        <h3 className="section-title">Tutores registrados</h3>
+        <table className="simple">
+          <thead><tr><th>Nombre</th><th>Usuario</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            {tutores.map((t) => (
+              <tr key={t.id}>
+                <td>{t.nombre}</td><td>{t.username}</td>
+                <td><span className={t.activo ? "pill-activo" : "pill-inactivo"}>{t.activo ? "Activo" : "Inactivo"}</span></td>
+                <td style={{ display: "flex", gap: 6 }}>
+                  <button className="secondary-btn" onClick={() => toggleActivo(t)}>{t.activo ? "Desactivar" : "Activar"}</button>
+                  <button className="secondary-btn" onClick={() => resetPassword(t)}>Restablecer clave</button>
+                  <button className="icon-btn delete-caso" onClick={() => eliminar(t.id)}><IconTrash size={15} /></button>
+                </td>
+              </tr>
+            ))}
+            {tutores.length === 0 && <tr><td colSpan="4" style={{ color: "var(--ink-soft)" }}>Aún no hay tutores registrados.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function GruposPanel({ user, grupos, tutores, recargar }) {
+  const [nombre, setNombre] = useState("");
+  const [tutorUsername, setTutorUsername] = useState("");
+  const [estudiantesTexto, setEstudiantesTexto] = useState("");
+  const [error, setError] = useState("");
+  const [editando, setEditando] = useState(null); // id del grupo en edición
+  const [textoEdicion, setTextoEdicion] = useState("");
+
+  async function crear(e) {
+    e.preventDefault();
+    setError("");
+    const estudiantes = estudiantesTexto.split("\n").map((n) => n.trim()).filter(Boolean);
+    if (estudiantes.length === 0) { setError("Agrega al menos un/a estudiante (uno por línea)."); return; }
+    try {
+      const body = { nombre, estudiantes };
+      if (user.role === "director") body.tutorUsername = tutorUsername;
+      await api("/api/grupos", { method: "POST", body: JSON.stringify(body) });
+      setNombre(""); setEstudiantesTexto(""); setTutorUsername("");
+      recargar();
+    } catch (e) { setError(e.message); }
+  }
+
+  function empezarEdicion(g) {
+    setEditando(g.id);
+    setTextoEdicion(g.estudiantes.map((e) => e.nombre).join("\n"));
+  }
+  async function guardarEdicion(id) {
+    const estudiantes = textoEdicion.split("\n").map((n) => n.trim()).filter(Boolean);
+    await api(`/api/grupos/${id}`, { method: "PATCH", body: JSON.stringify({ estudiantes }) });
+    setEditando(null);
+    recargar();
+  }
+  async function eliminar(id) { await api(`/api/grupos/${id}`, { method: "DELETE" }); recargar(); }
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Crear grupo</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
+          Guarda la lista de estudiantes una sola vez. Después, al crear una ficha, la puedes cargar con un clic en vez de escribirla cada vez.
+        </p>
+        {error && <div className="error-box">{error}</div>}
+        <form onSubmit={crear}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Nombre del grupo</span><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Grupo A — Lunes" required /></label>
+            {user.role === "director" && (
+              <label className="field"><span>Tutor/a</span>
+                <select required value={tutorUsername} onChange={(e) => setTutorUsername(e.target.value)}>
+                  <option value="">Seleccionar…</option>
+                  {tutores.filter((t) => t.activo).map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span>Estudiantes (un nombre por línea)</span>
+            <textarea value={estudiantesTexto} onChange={(e) => setEstudiantesTexto(e.target.value)} placeholder={"Ana Torres\nLuis Soto\nMaría Pérez"} style={{ minHeight: 110 }} />
+          </label>
+          <button className="submit-btn"><IconPlus size={16} /> Crear grupo</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3 className="section-title">Grupos existentes</h3>
+        {grupos.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>Aún no hay grupos creados.</p>}
+        {grupos.map((g) => (
+          <div key={g.id} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 14, marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <strong style={{ fontFamily: "'Fraunces', serif" }}>{g.nombre}</strong>{" "}
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>· {g.tutorNombre} · {g.estudiantes.length} estudiante(s)</span>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {editando === g.id ? (
+                  <button className="secondary-btn" onClick={() => guardarEdicion(g.id)}>Guardar lista</button>
+                ) : (
+                  <button className="secondary-btn" onClick={() => empezarEdicion(g)}>Editar estudiantes</button>
+                )}
+                <button className="icon-btn delete-caso" onClick={() => eliminar(g.id)}><IconTrash size={15} /></button>
+              </div>
+            </div>
+            {editando === g.id ? (
+              <textarea style={{ marginTop: 10, minHeight: 100 }} value={textoEdicion} onChange={(e) => setTextoEdicion(e.target.value)} />
+            ) : (
+              <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 8, marginBottom: 0 }}>{g.estudiantes.map((e) => e.nombre).join(" · ")}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FichaPersonalPanel({ user, estudiantes, fichasPersonales, recargar }) {
+  const vacio = { estudianteId: "", fecha: new Date().toISOString().slice(0, 10), motivoIngreso: "", situacionAcademica: "", situacionPersonalFamiliar: "", fortalezas: "", dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" }, observaciones: "", urgencia: "Normal" };
+  const [form, setForm] = useState(vacio);
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [filtroEstudiante, setFiltroEstudiante] = useState("Todos");
+  const [expandido, setExpandido] = useState(null);
+
+  async function enviar(e) {
+    e.preventDefault();
+    setError(""); setOk(false);
+    if (!form.estudianteId) { setError("Selecciona a qué estudiante corresponde esta ficha."); return; }
+    setEnviando(true);
+    try {
+      await api("/api/fichas-personales", { method: "POST", body: JSON.stringify(form) });
+      setForm({ ...vacio, estudianteId: form.estudianteId });
+      setOk(true);
+      recargar();
+    } catch (e) { setError(e.message); }
+    setEnviando(false);
+  }
+  async function eliminar(id) { await api(`/api/fichas-personales/${id}`, { method: "DELETE" }); recargar(); }
+
+  const listaFiltrada = fichasPersonales.filter((fp) => filtroEstudiante === "Todos" || fp.estudianteId === filtroEstudiante);
+
+  if (estudiantes.length === 0) {
+    return (
+      <div className="card">
+        <h3 className="section-title">Ficha personal</h3>
+        <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>
+          {user.role === "director"
+            ? 'Todavía no hay estudiantes registrados. Ve a la pestaña "Estudiantes" para registrar al menos uno antes de crear fichas personales.'
+            : "Todavía no tienes estudiantes asignados. Pide al equipo director que te asigne uno o más estudiantes."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Nueva ficha personal</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
+          A diferencia de la ficha de sesión (que registra una tutoría puntual), esta ficha es un perfil del/de la propio/a estudiante — se pueden crear varias en el tiempo para ir dejando registro de su evolución.
+        </p>
+        {error && <div className="error-box">{error}</div>}
+        {ok && <div className="note">Ficha personal guardada correctamente.</div>}
+        <form onSubmit={enviar}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Estudiante</span>
+              <select required value={form.estudianteId} onChange={(e) => setForm({ ...form, estudianteId: e.target.value })}>
+                <option value="">Seleccionar…</option>
+                {estudiantes.map((es) => <option key={es.id} value={es.id}>{es.nombre}{es.tutorNombre ? ` · ${es.tutorNombre}` : ""}</option>)}
+              </select>
+            </label>
+            <label className="field"><span>Fecha</span><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></label>
+          </div>
+          <label className="field" style={{ marginBottom: 12 }}><span>Motivo de ingreso al programa</span><textarea value={form.motivoIngreso} onChange={(e) => setForm({ ...form, motivoIngreso: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Situación académica</span><textarea value={form.situacionAcademica} onChange={(e) => setForm({ ...form, situacionAcademica: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Situación personal / familiar (si aplica)</span><textarea value={form.situacionPersonalFamiliar} onChange={(e) => setForm({ ...form, situacionPersonalFamiliar: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Fortalezas y recursos personales</span><textarea value={form.fortalezas} onChange={(e) => setForm({ ...form, fortalezas: e.target.value })} /></label>
+
+          <div className="dificultades-grid" style={{ marginBottom: 12 }}>
+            <CampoSiNo label="Académica" value={form.dificultades.academica ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, academica: v === "Sí" } })} />
+            <CampoSiNo label="Emocional / psicosocial" value={form.dificultades.emocional ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, emocional: v === "Sí" } })} />
+            <CampoSiNo label="Social o de integración" value={form.dificultades.social ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, social: v === "Sí" } })} />
+            <CampoSiNo label="Desconocimiento de trámites/servicios" value={form.dificultades.tramites ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, tramites: v === "Sí" } })} />
+            <CampoSiNo label="Otra" value={form.dificultades.otra ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, otra: v === "Sí" } })} />
+          </div>
+          {form.dificultades.otra && <label className="field" style={{ marginBottom: 12 }}><span>Detalle de "otra" dificultad</span><input value={form.dificultades.otraTexto} onChange={(e) => setForm({ ...form, dificultades: { ...form.dificultades, otraTexto: e.target.value } })} /></label>}
+
+          <label className="field" style={{ marginBottom: 12 }}><span>Observaciones y seguimiento</span><textarea value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></label>
+
+          <label className="field" style={{ marginBottom: 14 }}><span>Nivel de urgencia de este perfil</span>
+            <div className="dificultades-grid">
+              {["Normal", "Urgente", "Crítico"].map((op) => (
+                <button type="button" key={op} onClick={() => setForm({ ...form, urgencia: op })}
+                  className="campo-sn" style={{ justifyContent: "center", cursor: "pointer", border: form.urgencia === op ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
+                  <UrgenciaBadge nivel={op} />
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <button className="submit-btn" disabled={enviando}><IconSave size={16} /> {enviando ? "Guardando…" : "Guardar ficha personal"}</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3 className="section-title">Fichas personales registradas</h3>
+        <div className="filtros">
+          <select value={filtroEstudiante} onChange={(e) => setFiltroEstudiante(e.target.value)} style={{ width: "auto" }}>
+            <option value="Todos">Todos/as los/as estudiantes</option>
+            {estudiantes.map((es) => <option key={es.id} value={es.id}>{es.nombre}</option>)}
+          </select>
+        </div>
+        {listaFiltrada.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>Aún no hay fichas personales.</p>}
+        {listaFiltrada.map((fp) => {
+          const abierto = expandido === fp.id;
+          return (
+            <div className="caso-card" key={fp.id}>
+              <div className={`caso-tab ${fp.urgencia === "Crítico" ? "tab-critico" : fp.urgencia === "Urgente" ? "tab-urgente" : "tab-normal"}`} />
+              <div className="caso-head" onClick={() => setExpandido(abierto ? null : fp.id)}>
+                <div className="caso-head-left">
+                  <span className="caso-tutor">{fp.estudianteNombre}</span>
+                  <span className="caso-meta">{fp.fecha} · {fp.tutorNombre}</span>
+                  <span className="caso-excerpt">{fp.motivoIngreso || fp.observaciones || "Sin detalle registrado."}</span>
+                </div>
+                <div className="caso-head-right"><UrgenciaBadge nivel={fp.urgencia} />{abierto ? <IconUp size={16} /> : <IconDown size={16} />}</div>
+              </div>
+              {abierto && (
+                <div className="caso-body">
+                  <h4>Motivo de ingreso</h4><p>{fp.motivoIngreso || "—"}</p>
+                  <h4>Situación académica</h4><p>{fp.situacionAcademica || "—"}</p>
+                  {fp.situacionPersonalFamiliar && (<><h4>Situación personal / familiar</h4><p>{fp.situacionPersonalFamiliar}</p></>)}
+                  <h4>Fortalezas</h4><p>{fp.fortalezas || "—"}</p>
+                  <h4>Observaciones</h4><p>{fp.observaciones || "—"}</p>
+                  {(user.role === "director" || fp.tutorUsername === user.username) && (
+                    <button type="button" className="icon-btn delete-caso" onClick={() => eliminar(fp.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar</span></button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar }) {
+  const [nombre, setNombre] = useState(""); const [jornada, setJornada] = useState(""); const [carrera, setCarrera] = useState(""); const [tutorUsername, setTutorUsername] = useState("");
+  const [error, setError] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroTutor, setFiltroTutor] = useState("Todos");
+  const [filtroCaso, setFiltroCaso] = useState("Todos");
+  const [expandido, setExpandido] = useState(null);
+  const [detalle, setDetalle] = useState(null);
+  const [notaTexto, setNotaTexto] = useState("");
+
+  async function crear(e) {
+    e.preventDefault(); setError("");
+    try {
+      await api("/api/estudiantes", { method: "POST", body: JSON.stringify({ nombre, jornada, carrera, tutorUsername }) });
+      setNombre(""); setJornada(""); setCarrera(""); setTutorUsername("");
+      recargar();
+    } catch (e) { setError(e.message); }
+  }
+
+  async function abrirDetalle(id) {
+    if (expandido === id) { setExpandido(null); setDetalle(null); return; }
+    setExpandido(id); setDetalle(null);
+    const d = await api(`/api/estudiantes/${id}`);
+    setDetalle(d);
+  }
+
+  async function actualizar(id, cambios) {
+    await api(`/api/estudiantes/${id}`, { method: "PATCH", body: JSON.stringify(cambios) });
+    recargar();
+    if (expandido === id) { const d = await api(`/api/estudiantes/${id}`); setDetalle(d); }
+  }
+  async function agregarNota(id) {
+    if (!notaTexto.trim()) return;
+    await api(`/api/estudiantes/${id}/notas`, { method: "POST", body: JSON.stringify({ texto: notaTexto }) });
+    setNotaTexto("");
+    const d = await api(`/api/estudiantes/${id}`);
+    setDetalle(d);
+    recargar();
+  }
+  async function eliminar(id) { await api(`/api/estudiantes/${id}`, { method: "DELETE" }); if (expandido === id) setExpandido(null); recargar(); }
+
+  const listaFiltrada = estudiantes
+    .filter((e) => filtroTutor === "Todos" || e.tutorUsername === filtroTutor)
+    .filter((e) => filtroCaso === "Todos" || e.estadoCaso === filtroCaso)
+    .filter((e) => !busqueda.trim() || e.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+
+  const stats = {
+    total: estudiantes.length,
+    enSeguimiento: estudiantes.filter((e) => e.estadoCaso && e.estadoCaso !== "Sin seguimiento" && e.estadoCaso !== "Resuelto" && e.estadoCaso !== "Cerrado sin derivación").length,
+    sinAsistencia: estudiantes.filter((e) => e.porcentajeAsistencia === null).length,
+    promedioAsistencia: (() => {
+      const conDatos = estudiantes.filter((e) => e.porcentajeAsistencia !== null);
+      if (conDatos.length === 0) return 0;
+      return Math.round((conDatos.reduce((s, e) => s + e.porcentajeAsistencia, 0) / conDatos.length) * 10) / 10;
+    })(),
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Registrar estudiante</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Este registro y el estado de cada caso solo los ve el equipo director. Los tutores solo ven, de forma liviana, a sus propios/as estudiantes asignados/as (para poder completarles una ficha personal).</p>
+        {error && <div className="error-box">{error}</div>}
+        <form onSubmit={crear}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Nombre completo</span><input value={nombre} onChange={(e) => setNombre(e.target.value)} required /></label>
+            <label className="field"><span>Jornada</span>
+              <select value={jornada} onChange={(e) => setJornada(e.target.value)}>
+                <option value="">Seleccionar</option><option value="Diurno">Diurno</option><option value="Vespertino">Vespertino</option>
+              </select>
+            </label>
+            <label className="field"><span>Carrera (opcional)</span><input value={carrera} onChange={(e) => setCarrera(e.target.value)} /></label>
+            <label className="field"><span>Tutor/a asignado/a</span>
+              <select required value={tutorUsername} onChange={(e) => setTutorUsername(e.target.value)}>
+                <option value="">Seleccionar…</option>
+                {tutores.filter((t) => t.activo).map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+              </select>
+            </label>
+          </div>
+          <button className="submit-btn"><IconPlus size={16} /> Registrar estudiante</button>
+        </form>
+      </div>
+
+      <div className="stats-row">
+        <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Estudiantes registrados/as</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.enSeguimiento}</div><div className="stat-label">Con caso en curso</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.promedioAsistencia}%</div><div className="stat-label">Asistencia promedio</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.sinAsistencia}</div><div className="stat-label">Sin registros de asistencia</div></div>
+      </div>
+
+      <div className="filtros">
+        <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por nombre…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
+        <select value={filtroTutor} onChange={(e) => setFiltroTutor(e.target.value)} style={{ width: "auto" }}>
+          <option value="Todos">Todo/a tutor/a</option>
+          {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+        </select>
+        <select value={filtroCaso} onChange={(e) => setFiltroCaso(e.target.value)} style={{ width: "auto" }}>
+          <option value="Todos">Todo estado de caso</option>
+          <option value="Sin seguimiento">Sin seguimiento</option>
+          {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {listaFiltrada.length === 0 && (
+        <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay estudiantes para mostrar</h3><p>{estudiantes.length === 0 ? "Registra el primero arriba." : "Ajusta los filtros o la búsqueda."}</p></div>
+      )}
+
+      {listaFiltrada.map((es) => {
+        const abierto = expandido === es.id;
+        const fichasDe = fichasPersonales.filter((fp) => fp.estudianteId === es.id);
+        return (
+          <div className="caso-card" key={es.id}>
+            <div className={`caso-tab ${es.estadoCaso === "Sin seguimiento" ? "tab-normal" : "tab-urgente"}`} />
+            <div className="caso-head" onClick={() => abrirDetalle(es.id)}>
+              <div className="caso-head-left">
+                <span className="caso-tutor">{es.nombre}</span>
+                <span className="caso-meta">{es.jornada || "sin jornada"} · {es.tutorNombre} {es.carrera ? `· ${es.carrera}` : ""}</span>
+                <span className="caso-excerpt">{fichasDe.length} ficha(s) personal(es) · {es.estado}</span>
+              </div>
+              <div className="caso-head-right">
+                {es.porcentajeAsistencia !== null ? <span className="asistencia-pill">Asistencia {es.porcentajeAsistencia}%</span> : <span className="estado-pill">Sin asistencia registrada</span>}
+                <span className="estado-pill">{es.estadoCaso}</span>
+                {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
+              </div>
+            </div>
+            {abierto && (
+              <div className="caso-body">
+                {!detalle && <p style={{ color: "var(--ink-soft)" }}>Cargando detalle…</p>}
+                {detalle && (
+                  <div className="caso-body-grid">
+                    <div>
+                      <h4>Sesiones donde aparece ({detalle.sesiones.length})</h4>
+                      {detalle.sesiones.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin sesiones registradas todavía.</p>}
+                      {detalle.sesiones.map((s) => (
+                        <p key={s.id} style={{ fontSize: 12.5 }}>
+                          <strong>{s.fecha}</strong> — {s.presente ? "presente" : "ausente"} · {s.tutor}
+                          {s.situaciones ? <><br />{s.situaciones}</> : ""}
+                        </p>
+                      ))}
+                      <h4 style={{ marginTop: 16 }}>Fichas personales ({fichasDe.length})</h4>
+                      {fichasDe.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Aún no hay fichas personales.</p>}
+                      {fichasDe.map((fp) => (
+                        <p key={fp.id} style={{ fontSize: 12.5 }}>
+                          <strong>{fp.fecha}</strong> — {fp.motivoIngreso || fp.observaciones || "sin detalle"}
+                        </p>
+                      ))}
+                    </div>
+                    <div>
+                      <h4>Estado del caso</h4>
+                      <div className="edit-row">
+                        <select value={es.estadoCaso} onChange={(ev) => actualizar(es.id, { estadoCaso: ev.target.value })}>
+                          <option value="Sin seguimiento">Sin seguimiento</option>
+                          {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <h4>Procedimiento / derivación actual</h4>
+                      <div className="edit-row"><input value={es.procedimientoActual || ""} onChange={(ev) => actualizar(es.id, { procedimientoActual: ev.target.value })} placeholder="Ej: Derivado a Oficina de Género" /></div>
+                      <h4>Reasignar tutor/a</h4>
+                      <div className="edit-row">
+                        <select value={es.tutorUsername} onChange={(ev) => actualizar(es.id, { tutorUsername: ev.target.value })}>
+                          {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+                        </select>
+                      </div>
+                      <h4>Notas del caso</h4>
+                      {(detalle.estudiante.notasCaso || []).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
+                      {(detalle.estudiante.notasCaso || []).map((n, i) => (<div className="nota-item" key={i}>{n.texto}<span className="nota-fecha">{n.autor} · {new Date(n.fecha).toLocaleString("es-CL")}</span></div>))}
+                      <div className="nota-add">
+                        <input placeholder="Ej: se solucionó mediante derivación a Oficina de Género" value={notaTexto} onChange={(ev) => setNotaTexto(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && agregarNota(es.id)} />
+                        <button type="button" onClick={() => agregarNota(es.id)}><IconMsg size={15} /></button>
+                      </div>
+                      <button type="button" className="icon-btn delete-caso" style={{ marginTop: 14 }} onClick={() => eliminar(es.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar registro</span></button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExcelPanel({ recargar }) {
+  const [archivo, setArchivo] = useState(null);
+  const [resultado, setResultado] = useState(null);
+  const [error, setError] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+
+  async function importar(e) {
+    e.preventDefault();
+    if (!archivo) return;
+    setSubiendo(true); setError(""); setResultado(null);
+    const fd = new FormData(); fd.append("archivo", archivo);
+    try {
+      const res = await fetch("/api/excel/importar", { method: "POST", body: fd, headers: cabecerasCsrf() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al importar");
+      setResultado(data); setArchivo(null); recargar();
+    } catch (e) { setError(e.message); }
+    setSubiendo(false);
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Exportar</h3>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Descarga todas las fichas registradas en un archivo Excel.</p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <a className="submit-btn" href="/api/excel/exportar"><IconDownload size={16} /> Descargar Excel completo</a>
+          <a className="secondary-btn" href="/api/excel/plantilla"><IconDownload size={14} /> Descargar plantilla vacía</a>
+        </div>
+      </div>
+      <div className="card">
+        <h3 className="section-title">Importar</h3>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Sube un Excel con el mismo formato de la plantilla para traspasar información masivamente.</p>
+        {error && <div className="error-box">{error}</div>}
+        {resultado && <div className="note">Se crearon {resultado.creadas} ficha(s) desde el archivo.</div>}
+        <form onSubmit={importar}>
+          <input type="file" accept=".xlsx,.xls" onChange={(e) => setArchivo(e.target.files[0])} style={{ marginBottom: 12 }} required />
+          <br />
+          <button className="submit-btn" disabled={subiendo}><IconUpload size={16} /> {subiendo ? "Importando…" : "Importar Excel"}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
