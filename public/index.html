@@ -263,6 +263,8 @@ function App() {
   const [tutores, setTutores] = useState([]);
   const [materiales, setMateriales] = useState([]);
   const [grupos, setGrupos] = useState([]);
+  const [estudiantes, setEstudiantes] = useState([]);
+  const [fichasPersonales, setFichasPersonales] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [form, setForm] = useState(initialForm());
   const [enviando, setEnviando] = useState(false);
@@ -283,8 +285,10 @@ function App() {
   const cargarTodo = useCallback(async () => {
     setCargando(true);
     try {
-      const [f, m, g] = await Promise.all([api("/api/fichas"), api("/api/materiales"), api("/api/grupos")]);
-      setFichas(f); setMateriales(m); setGrupos(g);
+      const [f, m, g, e, fp] = await Promise.all([
+        api("/api/fichas"), api("/api/materiales"), api("/api/grupos"), api("/api/estudiantes"), api("/api/fichas-personales"),
+      ]);
+      setFichas(f); setMateriales(m); setGrupos(g); setEstudiantes(e); setFichasPersonales(fp);
       if (user && user.role === "director") setTutores(await api("/api/tutores"));
     } catch (e) {}
     setCargando(false);
@@ -440,6 +444,8 @@ function App() {
           <button className={`tab-btn ${vista === "form" ? "active" : ""}`} onClick={nuevaFicha}>Nueva ficha</button>
           <button className={`tab-btn ${vista === "materiales" ? "active" : ""}`} onClick={() => setVista("materiales")}>Materiales</button>
           <button className={`tab-btn ${vista === "grupos" ? "active" : ""}`} onClick={() => setVista("grupos")}>Grupos</button>
+          <button className={`tab-btn ${vista === "fichapersonal" ? "active" : ""}`} onClick={() => setVista("fichapersonal")}>Ficha personal</button>
+          {user.role === "director" && <button className={`tab-btn ${vista === "estudiantes" ? "active" : ""}`} onClick={() => setVista("estudiantes")}>Estudiantes</button>}
           {user.role === "director" && <button className={`tab-btn ${vista === "tutores" ? "active" : ""}`} onClick={() => setVista("tutores")}>Tutores</button>}
           {user.role === "director" && <button className={`tab-btn ${vista === "excel" ? "active" : ""}`} onClick={() => setVista("excel")}>Excel</button>}
         </div>
@@ -620,6 +626,8 @@ function App() {
 
         {vista === "materiales" && <MaterialesPanel user={user} materiales={materiales} recargar={cargarTodo} />}
         {vista === "grupos" && <GruposPanel user={user} grupos={grupos} tutores={tutores} recargar={cargarTodo} />}
+        {vista === "fichapersonal" && <FichaPersonalPanel user={user} estudiantes={estudiantes} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
+        {vista === "estudiantes" && user.role === "director" && <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
         {vista === "tutores" && user.role === "director" && <TutoresPanel tutores={tutores} recargar={cargarTodo} />}
         {vista === "excel" && user.role === "director" && <ExcelPanel recargar={cargarTodo} />}
       </div>
@@ -826,6 +834,320 @@ function GruposPanel({ user, grupos, tutores, recargar }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function FichaPersonalPanel({ user, estudiantes, fichasPersonales, recargar }) {
+  const vacio = { estudianteId: "", fecha: new Date().toISOString().slice(0, 10), motivoIngreso: "", situacionAcademica: "", situacionPersonalFamiliar: "", fortalezas: "", dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" }, observaciones: "", urgencia: "Normal" };
+  const [form, setForm] = useState(vacio);
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [filtroEstudiante, setFiltroEstudiante] = useState("Todos");
+  const [expandido, setExpandido] = useState(null);
+
+  async function enviar(e) {
+    e.preventDefault();
+    setError(""); setOk(false);
+    if (!form.estudianteId) { setError("Selecciona a qué estudiante corresponde esta ficha."); return; }
+    setEnviando(true);
+    try {
+      await api("/api/fichas-personales", { method: "POST", body: JSON.stringify(form) });
+      setForm({ ...vacio, estudianteId: form.estudianteId });
+      setOk(true);
+      recargar();
+    } catch (e) { setError(e.message); }
+    setEnviando(false);
+  }
+  async function eliminar(id) { await api(`/api/fichas-personales/${id}`, { method: "DELETE" }); recargar(); }
+
+  const listaFiltrada = fichasPersonales.filter((fp) => filtroEstudiante === "Todos" || fp.estudianteId === filtroEstudiante);
+
+  if (estudiantes.length === 0) {
+    return (
+      <div className="card">
+        <h3 className="section-title">Ficha personal</h3>
+        <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>
+          {user.role === "director"
+            ? 'Todavía no hay estudiantes registrados. Ve a la pestaña "Estudiantes" para registrar al menos uno antes de crear fichas personales.'
+            : "Todavía no tienes estudiantes asignados. Pide al equipo director que te asigne uno o más estudiantes."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Nueva ficha personal</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
+          A diferencia de la ficha de sesión (que registra una tutoría puntual), esta ficha es un perfil del/de la propio/a estudiante — se pueden crear varias en el tiempo para ir dejando registro de su evolución.
+        </p>
+        {error && <div className="error-box">{error}</div>}
+        {ok && <div className="note">Ficha personal guardada correctamente.</div>}
+        <form onSubmit={enviar}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Estudiante</span>
+              <select required value={form.estudianteId} onChange={(e) => setForm({ ...form, estudianteId: e.target.value })}>
+                <option value="">Seleccionar…</option>
+                {estudiantes.map((es) => <option key={es.id} value={es.id}>{es.nombre}{es.tutorNombre ? ` · ${es.tutorNombre}` : ""}</option>)}
+              </select>
+            </label>
+            <label className="field"><span>Fecha</span><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></label>
+          </div>
+          <label className="field" style={{ marginBottom: 12 }}><span>Motivo de ingreso al programa</span><textarea value={form.motivoIngreso} onChange={(e) => setForm({ ...form, motivoIngreso: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Situación académica</span><textarea value={form.situacionAcademica} onChange={(e) => setForm({ ...form, situacionAcademica: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Situación personal / familiar (si aplica)</span><textarea value={form.situacionPersonalFamiliar} onChange={(e) => setForm({ ...form, situacionPersonalFamiliar: e.target.value })} /></label>
+          <label className="field" style={{ marginBottom: 12 }}><span>Fortalezas y recursos personales</span><textarea value={form.fortalezas} onChange={(e) => setForm({ ...form, fortalezas: e.target.value })} /></label>
+
+          <div className="dificultades-grid" style={{ marginBottom: 12 }}>
+            <CampoSiNo label="Académica" value={form.dificultades.academica ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, academica: v === "Sí" } })} />
+            <CampoSiNo label="Emocional / psicosocial" value={form.dificultades.emocional ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, emocional: v === "Sí" } })} />
+            <CampoSiNo label="Social o de integración" value={form.dificultades.social ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, social: v === "Sí" } })} />
+            <CampoSiNo label="Desconocimiento de trámites/servicios" value={form.dificultades.tramites ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, tramites: v === "Sí" } })} />
+            <CampoSiNo label="Otra" value={form.dificultades.otra ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, otra: v === "Sí" } })} />
+          </div>
+          {form.dificultades.otra && <label className="field" style={{ marginBottom: 12 }}><span>Detalle de "otra" dificultad</span><input value={form.dificultades.otraTexto} onChange={(e) => setForm({ ...form, dificultades: { ...form.dificultades, otraTexto: e.target.value } })} /></label>}
+
+          <label className="field" style={{ marginBottom: 12 }}><span>Observaciones y seguimiento</span><textarea value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></label>
+
+          <label className="field" style={{ marginBottom: 14 }}><span>Nivel de urgencia de este perfil</span>
+            <div className="dificultades-grid">
+              {["Normal", "Urgente", "Crítico"].map((op) => (
+                <button type="button" key={op} onClick={() => setForm({ ...form, urgencia: op })}
+                  className="campo-sn" style={{ justifyContent: "center", cursor: "pointer", border: form.urgencia === op ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
+                  <UrgenciaBadge nivel={op} />
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <button className="submit-btn" disabled={enviando}><IconSave size={16} /> {enviando ? "Guardando…" : "Guardar ficha personal"}</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3 className="section-title">Fichas personales registradas</h3>
+        <div className="filtros">
+          <select value={filtroEstudiante} onChange={(e) => setFiltroEstudiante(e.target.value)} style={{ width: "auto" }}>
+            <option value="Todos">Todos/as los/as estudiantes</option>
+            {estudiantes.map((es) => <option key={es.id} value={es.id}>{es.nombre}</option>)}
+          </select>
+        </div>
+        {listaFiltrada.length === 0 && <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>Aún no hay fichas personales.</p>}
+        {listaFiltrada.map((fp) => {
+          const abierto = expandido === fp.id;
+          return (
+            <div className="caso-card" key={fp.id}>
+              <div className={`caso-tab ${fp.urgencia === "Crítico" ? "tab-critico" : fp.urgencia === "Urgente" ? "tab-urgente" : "tab-normal"}`} />
+              <div className="caso-head" onClick={() => setExpandido(abierto ? null : fp.id)}>
+                <div className="caso-head-left">
+                  <span className="caso-tutor">{fp.estudianteNombre}</span>
+                  <span className="caso-meta">{fp.fecha} · {fp.tutorNombre}</span>
+                  <span className="caso-excerpt">{fp.motivoIngreso || fp.observaciones || "Sin detalle registrado."}</span>
+                </div>
+                <div className="caso-head-right"><UrgenciaBadge nivel={fp.urgencia} />{abierto ? <IconUp size={16} /> : <IconDown size={16} />}</div>
+              </div>
+              {abierto && (
+                <div className="caso-body">
+                  <h4>Motivo de ingreso</h4><p>{fp.motivoIngreso || "—"}</p>
+                  <h4>Situación académica</h4><p>{fp.situacionAcademica || "—"}</p>
+                  {fp.situacionPersonalFamiliar && (<><h4>Situación personal / familiar</h4><p>{fp.situacionPersonalFamiliar}</p></>)}
+                  <h4>Fortalezas</h4><p>{fp.fortalezas || "—"}</p>
+                  <h4>Observaciones</h4><p>{fp.observaciones || "—"}</p>
+                  {(user.role === "director" || fp.tutorUsername === user.username) && (
+                    <button type="button" className="icon-btn delete-caso" onClick={() => eliminar(fp.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar</span></button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar }) {
+  const [nombre, setNombre] = useState(""); const [jornada, setJornada] = useState(""); const [carrera, setCarrera] = useState(""); const [tutorUsername, setTutorUsername] = useState("");
+  const [error, setError] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroTutor, setFiltroTutor] = useState("Todos");
+  const [filtroCaso, setFiltroCaso] = useState("Todos");
+  const [expandido, setExpandido] = useState(null);
+  const [detalle, setDetalle] = useState(null);
+  const [notaTexto, setNotaTexto] = useState("");
+
+  async function crear(e) {
+    e.preventDefault(); setError("");
+    try {
+      await api("/api/estudiantes", { method: "POST", body: JSON.stringify({ nombre, jornada, carrera, tutorUsername }) });
+      setNombre(""); setJornada(""); setCarrera(""); setTutorUsername("");
+      recargar();
+    } catch (e) { setError(e.message); }
+  }
+
+  async function abrirDetalle(id) {
+    if (expandido === id) { setExpandido(null); setDetalle(null); return; }
+    setExpandido(id); setDetalle(null);
+    const d = await api(`/api/estudiantes/${id}`);
+    setDetalle(d);
+  }
+
+  async function actualizar(id, cambios) {
+    await api(`/api/estudiantes/${id}`, { method: "PATCH", body: JSON.stringify(cambios) });
+    recargar();
+    if (expandido === id) { const d = await api(`/api/estudiantes/${id}`); setDetalle(d); }
+  }
+  async function agregarNota(id) {
+    if (!notaTexto.trim()) return;
+    await api(`/api/estudiantes/${id}/notas`, { method: "POST", body: JSON.stringify({ texto: notaTexto }) });
+    setNotaTexto("");
+    const d = await api(`/api/estudiantes/${id}`);
+    setDetalle(d);
+    recargar();
+  }
+  async function eliminar(id) { await api(`/api/estudiantes/${id}`, { method: "DELETE" }); if (expandido === id) setExpandido(null); recargar(); }
+
+  const listaFiltrada = estudiantes
+    .filter((e) => filtroTutor === "Todos" || e.tutorUsername === filtroTutor)
+    .filter((e) => filtroCaso === "Todos" || e.estadoCaso === filtroCaso)
+    .filter((e) => !busqueda.trim() || e.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+
+  const stats = {
+    total: estudiantes.length,
+    enSeguimiento: estudiantes.filter((e) => e.estadoCaso && e.estadoCaso !== "Sin seguimiento" && e.estadoCaso !== "Resuelto" && e.estadoCaso !== "Cerrado sin derivación").length,
+    sinAsistencia: estudiantes.filter((e) => e.porcentajeAsistencia === null).length,
+    promedioAsistencia: (() => {
+      const conDatos = estudiantes.filter((e) => e.porcentajeAsistencia !== null);
+      if (conDatos.length === 0) return 0;
+      return Math.round((conDatos.reduce((s, e) => s + e.porcentajeAsistencia, 0) / conDatos.length) * 10) / 10;
+    })(),
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <h3 className="section-title">Registrar estudiante</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Este registro y el estado de cada caso solo los ve el equipo director. Los tutores solo ven, de forma liviana, a sus propios/as estudiantes asignados/as (para poder completarles una ficha personal).</p>
+        {error && <div className="error-box">{error}</div>}
+        <form onSubmit={crear}>
+          <div className="grid" style={{ marginBottom: 12 }}>
+            <label className="field"><span>Nombre completo</span><input value={nombre} onChange={(e) => setNombre(e.target.value)} required /></label>
+            <label className="field"><span>Jornada</span>
+              <select value={jornada} onChange={(e) => setJornada(e.target.value)}>
+                <option value="">Seleccionar</option><option value="Diurno">Diurno</option><option value="Vespertino">Vespertino</option>
+              </select>
+            </label>
+            <label className="field"><span>Carrera (opcional)</span><input value={carrera} onChange={(e) => setCarrera(e.target.value)} /></label>
+            <label className="field"><span>Tutor/a asignado/a</span>
+              <select required value={tutorUsername} onChange={(e) => setTutorUsername(e.target.value)}>
+                <option value="">Seleccionar…</option>
+                {tutores.filter((t) => t.activo).map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+              </select>
+            </label>
+          </div>
+          <button className="submit-btn"><IconPlus size={16} /> Registrar estudiante</button>
+        </form>
+      </div>
+
+      <div className="stats-row">
+        <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Estudiantes registrados/as</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.enSeguimiento}</div><div className="stat-label">Con caso en curso</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.promedioAsistencia}%</div><div className="stat-label">Asistencia promedio</div></div>
+        <div className="stat-box"><div className="stat-num">{stats.sinAsistencia}</div><div className="stat-label">Sin registros de asistencia</div></div>
+      </div>
+
+      <div className="filtros">
+        <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por nombre…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
+        <select value={filtroTutor} onChange={(e) => setFiltroTutor(e.target.value)} style={{ width: "auto" }}>
+          <option value="Todos">Todo/a tutor/a</option>
+          {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+        </select>
+        <select value={filtroCaso} onChange={(e) => setFiltroCaso(e.target.value)} style={{ width: "auto" }}>
+          <option value="Todos">Todo estado de caso</option>
+          <option value="Sin seguimiento">Sin seguimiento</option>
+          {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {listaFiltrada.length === 0 && (
+        <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay estudiantes para mostrar</h3><p>{estudiantes.length === 0 ? "Registra el primero arriba." : "Ajusta los filtros o la búsqueda."}</p></div>
+      )}
+
+      {listaFiltrada.map((es) => {
+        const abierto = expandido === es.id;
+        const fichasDe = fichasPersonales.filter((fp) => fp.estudianteId === es.id);
+        return (
+          <div className="caso-card" key={es.id}>
+            <div className={`caso-tab ${es.estadoCaso === "Sin seguimiento" ? "tab-normal" : "tab-urgente"}`} />
+            <div className="caso-head" onClick={() => abrirDetalle(es.id)}>
+              <div className="caso-head-left">
+                <span className="caso-tutor">{es.nombre}</span>
+                <span className="caso-meta">{es.jornada || "sin jornada"} · {es.tutorNombre} {es.carrera ? `· ${es.carrera}` : ""}</span>
+                <span className="caso-excerpt">{fichasDe.length} ficha(s) personal(es) · {es.estado}</span>
+              </div>
+              <div className="caso-head-right">
+                {es.porcentajeAsistencia !== null ? <span className="asistencia-pill">Asistencia {es.porcentajeAsistencia}%</span> : <span className="estado-pill">Sin asistencia registrada</span>}
+                <span className="estado-pill">{es.estadoCaso}</span>
+                {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
+              </div>
+            </div>
+            {abierto && (
+              <div className="caso-body">
+                {!detalle && <p style={{ color: "var(--ink-soft)" }}>Cargando detalle…</p>}
+                {detalle && (
+                  <div className="caso-body-grid">
+                    <div>
+                      <h4>Sesiones donde aparece ({detalle.sesiones.length})</h4>
+                      {detalle.sesiones.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin sesiones registradas todavía.</p>}
+                      {detalle.sesiones.map((s) => (
+                        <p key={s.id} style={{ fontSize: 12.5 }}>
+                          <strong>{s.fecha}</strong> — {s.presente ? "presente" : "ausente"} · {s.tutor}
+                          {s.situaciones ? <><br />{s.situaciones}</> : ""}
+                        </p>
+                      ))}
+                      <h4 style={{ marginTop: 16 }}>Fichas personales ({fichasDe.length})</h4>
+                      {fichasDe.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Aún no hay fichas personales.</p>}
+                      {fichasDe.map((fp) => (
+                        <p key={fp.id} style={{ fontSize: 12.5 }}>
+                          <strong>{fp.fecha}</strong> — {fp.motivoIngreso || fp.observaciones || "sin detalle"}
+                        </p>
+                      ))}
+                    </div>
+                    <div>
+                      <h4>Estado del caso</h4>
+                      <div className="edit-row">
+                        <select value={es.estadoCaso} onChange={(ev) => actualizar(es.id, { estadoCaso: ev.target.value })}>
+                          <option value="Sin seguimiento">Sin seguimiento</option>
+                          {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <h4>Procedimiento / derivación actual</h4>
+                      <div className="edit-row"><input value={es.procedimientoActual || ""} onChange={(ev) => actualizar(es.id, { procedimientoActual: ev.target.value })} placeholder="Ej: Derivado a Oficina de Género" /></div>
+                      <h4>Reasignar tutor/a</h4>
+                      <div className="edit-row">
+                        <select value={es.tutorUsername} onChange={(ev) => actualizar(es.id, { tutorUsername: ev.target.value })}>
+                          {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+                        </select>
+                      </div>
+                      <h4>Notas del caso</h4>
+                      {(detalle.estudiante.notasCaso || []).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
+                      {(detalle.estudiante.notasCaso || []).map((n, i) => (<div className="nota-item" key={i}>{n.texto}<span className="nota-fecha">{n.autor} · {new Date(n.fecha).toLocaleString("es-CL")}</span></div>))}
+                      <div className="nota-add">
+                        <input placeholder="Ej: se solucionó mediante derivación a Oficina de Género" value={notaTexto} onChange={(ev) => setNotaTexto(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && agregarNota(es.id)} />
+                        <button type="button" onClick={() => agregarNota(es.id)}><IconMsg size={15} /></button>
+                      </div>
+                      <button type="button" className="icon-btn delete-caso" style={{ marginTop: 14 }} onClick={() => eliminar(es.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar registro</span></button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
