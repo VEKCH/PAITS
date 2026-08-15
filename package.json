@@ -1,7 +1,7 @@
 {
   "name": "dapsi-plataforma",
   "version": "1.0.0",
-  "description": "Plataforma DAPSI-UCSH: fichas de sesion, casos y derivaciones, materiales y Excel",
+  "description": "Plataforma DAPSI-UCSH: fichas de sesion, estudiantes, casos y derivaciones, materiales y Excel",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
@@ -12,13 +12,13 @@
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "mongodb": "^7.5.0",
     "multer": "^2.2.0"
   }
 }
