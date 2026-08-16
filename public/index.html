@@ -277,9 +277,6 @@ function App() {
   const [agrupar, setAgrupar] = useState(true);
   const [notaTexto, setNotaTexto] = useState({});
   const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [tipoRegistro, setTipoRegistro] = useState("grupales");
-  const [expandidoPersonal, setExpandidoPersonal] = useState(null);
-  const [estudianteFoco, setEstudianteFoco] = useState(null);
 
   useEffect(() => {
     api("/api/me").then(setUser).catch(() => setUser(null));
@@ -393,7 +390,6 @@ function App() {
                 <h4>Situaciones y solicitudes</h4><p>{f.situaciones || "—"}</p>
                 <h4>Asistencia ({(f.asistencia||[]).filter((a) => a.presente).length}/{(f.asistencia||[]).length} presentes{f.porcentajeAsistencia !== null && f.porcentajeAsistencia !== undefined ? ` · ${f.porcentajeAsistencia}%` : ""})</h4>
                 <ul className="asist-list">{(f.asistencia||[]).map((a) => (<li key={a.id}>{a.nombre || "(sin nombre)"} — {a.presente ? "presente" : "ausente"}{a.observacion ? ` · ${a.observacion}` : ""}</li>))}</ul>
-                <a className="secondary-btn" style={{ marginTop: 12 }} href={`/api/fichas/${f.id}/word`}><IconDownload size={14} /> Descargar en Word</a>
               </div>
               {esDirector && (
                 <div>
@@ -426,65 +422,6 @@ function App() {
     const map = {};
     fichasFiltradas.forEach((f) => { (map[f.tutor || "Sin tutor"] = map[f.tutor || "Sin tutor"] || []).push(f); });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
-  }
-
-  const fichasPersonalesFiltradas = fichasPersonales
-    .filter((fp) => filtroUrgencia === "Todas" || fp.urgencia === filtroUrgencia)
-    .filter((fp) => {
-      if (!busqueda.trim()) return true;
-      const t = busqueda.toLowerCase();
-      return (
-        (fp.estudianteNombre || "").toLowerCase().includes(t) ||
-        (fp.tutorNombre || "").toLowerCase().includes(t) ||
-        (fp.motivoIngreso || "").toLowerCase().includes(t) ||
-        (fp.observaciones || "").toLowerCase().includes(t) ||
-        (fp.situacionAcademica || "").toLowerCase().includes(t)
-      );
-    })
-    .sort((a, b) => URGENCIA_ORDEN[a.urgencia] - URGENCIA_ORDEN[b.urgencia] || new Date(b.creadoEn) - new Date(a.creadoEn));
-
-  function agruparPersonalesPorTutor() {
-    const map = {};
-    fichasPersonalesFiltradas.forEach((fp) => { (map[fp.tutorNombre || "Sin tutor"] = map[fp.tutorNombre || "Sin tutor"] || []).push(fp); });
-    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
-  }
-
-  function PersonalCard({ fp }) {
-    const abierto = expandidoPersonal === fp.id;
-    const tabClass = fp.urgencia === "Crítico" ? "tab-critico" : fp.urgencia === "Urgente" ? "tab-urgente" : "tab-normal";
-    return (
-      <div className="caso-card">
-        <div className={`caso-tab ${tabClass}`} />
-        <div className="caso-head" onClick={() => setExpandidoPersonal(abierto ? null : fp.id)}>
-          <div className="caso-head-left">
-            <span className="caso-tutor">{fp.estudianteNombre}</span>
-            <span className="caso-meta">{fp.fecha} · {fp.tutorNombre}</span>
-            <span className="caso-excerpt">{fp.motivoIngreso || fp.observaciones || "Sin detalle registrado."}</span>
-          </div>
-          <div className="caso-head-right">
-            <UrgenciaBadge nivel={fp.urgencia} />
-            {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
-          </div>
-        </div>
-        {abierto && (
-          <div className="caso-body">
-            <h4>Motivo de ingreso</h4><p>{fp.motivoIngreso || "—"}</p>
-            <h4>Situación académica</h4><p>{fp.situacionAcademica || "—"}</p>
-            {fp.situacionPersonalFamiliar && (<><h4>Situación personal / familiar</h4><p>{fp.situacionPersonalFamiliar}</p></>)}
-            <h4>Fortalezas</h4><p>{fp.fortalezas || "—"}</p>
-            <h4>Observaciones</h4><p>{fp.observaciones || "—"}</p>
-            <a className="secondary-btn" style={{ marginTop: 6, marginBottom: 10 }} href={`/api/fichas-personales/${fp.id}/word`}><IconDownload size={14} /> Descargar en Word</a>
-            {user.role === "director" && (
-              <div>
-                <button type="button" className="link-btn" onClick={() => { setEstudianteFoco({ id: fp.estudianteId, ts: Date.now() }); setVista("estudiantes"); }}>
-                  Ver estado del caso de {fp.estudianteNombre} →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
   }
 
   return (
@@ -641,96 +578,56 @@ function App() {
 
         {vista === "dashboard" && (
           <div>
-            <div className="filtros" style={{ marginBottom: 14 }}>
-              <button type="button" className={`toggle-btn ${tipoRegistro === "grupales" ? "on" : ""}`} onClick={() => setTipoRegistro("grupales")}>Fichas grupales (sesión)</button>
-              <button type="button" className={`toggle-btn ${tipoRegistro === "personales" ? "on" : ""}`} onClick={() => setTipoRegistro("personales")}>Fichas personales</button>
+            <div className="stats-row">
+              <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Casos totales</div></div>
+              <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{stats.critico}</div><div className="stat-label">Críticos</div></div>
+              <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{stats.urgente}</div><div className="stat-label">Urgentes</div></div>
+              {user.role === "director" ? (
+                <div className="stat-box"><div className="stat-num">{stats.pendientes}</div><div className="stat-label">Pendientes de revisión</div></div>
+              ) : (
+                <div className="stat-box"><div className="stat-num">{fichas.length ? Math.round((fichas.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / fichas.length) * 10) / 10 : 0}%</div><div className="stat-label">Asistencia promedio</div></div>
+              )}
             </div>
 
-            {tipoRegistro === "grupales" ? (
-              <>
-                <div className="stats-row">
-                  <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Casos totales</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{stats.critico}</div><div className="stat-label">Críticos</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{stats.urgente}</div><div className="stat-label">Urgentes</div></div>
-                  {user.role === "director" ? (
-                    <div className="stat-box"><div className="stat-num">{stats.pendientes}</div><div className="stat-label">Pendientes de revisión</div></div>
-                  ) : (
-                    <div className="stat-box"><div className="stat-num">{fichas.length ? Math.round((fichas.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / fichas.length) * 10) / 10 : 0}%</div><div className="stat-label">Asistencia promedio</div></div>
-                  )}
-                </div>
+            <div className="filtros">
+              <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
+              <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
+                <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
+              </select>
+              {user.role === "director" && (
+                <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{ width: "auto" }}>
+                  <option value="Todos">Todo estado</option>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              {user.role === "director" && <button type="button" className={`toggle-btn ${agrupar ? "on" : ""}`} onClick={() => setAgrupar(!agrupar)}>Agrupar por tutor/a</button>}
+            </div>
 
-                <div className="filtros">
-                  <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por estudiante, tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
-                  <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
-                    <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
-                  </select>
-                  {user.role === "director" && (
-                    <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{ width: "auto" }}>
-                      <option value="Todos">Todo estado</option>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  )}
-                  {user.role === "director" && <button type="button" className={`toggle-btn ${agrupar ? "on" : ""}`} onClick={() => setAgrupar(!agrupar)}>Agrupar por tutor/a</button>}
-                </div>
-
-                {cargando && <div className="empty-state">Cargando…</div>}
-                {!cargando && fichasFiltradas.length === 0 && (
-                  <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay fichas para mostrar</h3><p>{fichas.length === 0 ? 'Crea la primera desde "Nueva ficha".' : "Ajusta los filtros o la búsqueda."}</p></div>
-                )}
-
-                {!cargando && user.role === "director" && agrupar
-                  ? agruparPorTutor().map(([tutor, lista]) => {
-                      const prom = lista.length ? Math.round((lista.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / lista.length) * 10) / 10 : 0;
-                      return (
-                        <div key={tutor}>
-                          <div className="grupo-header">
-                            <span>{tutor}</span>
-                            <span className="grupo-meta">{lista.length} sesión(es) · asistencia promedio {prom}%</span>
-                          </div>
-                          {lista.map((f) => <FichaCard key={f.id} f={f} />)}
-                        </div>
-                      );
-                    })
-                  : fichasFiltradas.map((f) => <FichaCard key={f.id} f={f} />)}
-              </>
-            ) : (
-              <>
-                <div className="stats-row">
-                  <div className="stat-box"><div className="stat-num">{fichasPersonales.length}</div><div className="stat-label">Fichas personales</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{fichasPersonales.filter((fp) => fp.urgencia === "Crítico").length}</div><div className="stat-label">Críticas</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{fichasPersonales.filter((fp) => fp.urgencia === "Urgente").length}</div><div className="stat-label">Urgentes</div></div>
-                  <div className="stat-box"><div className="stat-num">{new Set(fichasPersonales.map((fp) => fp.estudianteId)).size}</div><div className="stat-label">Estudiantes con ficha</div></div>
-                </div>
-
-                <div className="filtros">
-                  <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por estudiante, tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
-                  <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
-                    <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
-                  </select>
-                  {user.role === "director" && <button type="button" className={`toggle-btn ${agrupar ? "on" : ""}`} onClick={() => setAgrupar(!agrupar)}>Agrupar por tutor/a</button>}
-                </div>
-
-                {cargando && <div className="empty-state">Cargando…</div>}
-                {!cargando && fichasPersonalesFiltradas.length === 0 && (
-                  <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay fichas personales para mostrar</h3><p>{fichasPersonales.length === 0 ? 'Crea la primera desde la pestaña "Ficha personal".' : "Ajusta los filtros o la búsqueda."}</p></div>
-                )}
-
-                {!cargando && user.role === "director" && agrupar
-                  ? agruparPersonalesPorTutor().map(([tutor, lista]) => (
-                      <div key={tutor}>
-                        <div className="grupo-header"><span>{tutor}</span><span className="grupo-meta">{lista.length} ficha(s) personal(es)</span></div>
-                        {lista.map((fp) => <PersonalCard key={fp.id} fp={fp} />)}
-                      </div>
-                    ))
-                  : fichasPersonalesFiltradas.map((fp) => <PersonalCard key={fp.id} fp={fp} />)}
-              </>
+            {cargando && <div className="empty-state">Cargando…</div>}
+            {!cargando && fichasFiltradas.length === 0 && (
+              <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay fichas para mostrar</h3><p>{fichas.length === 0 ? 'Crea la primera desde "Nueva ficha".' : "Ajusta los filtros o la búsqueda."}</p></div>
             )}
+
+            {!cargando && user.role === "director" && agrupar
+              ? agruparPorTutor().map(([tutor, lista]) => {
+                  const prom = lista.length ? Math.round((lista.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / lista.length) * 10) / 10 : 0;
+                  return (
+                    <div key={tutor}>
+                      <div className="grupo-header">
+                        <span>{tutor}</span>
+                        <span className="grupo-meta">{lista.length} sesión(es) · asistencia promedio {prom}%</span>
+                      </div>
+                      {lista.map((f) => <FichaCard key={f.id} f={f} />)}
+                    </div>
+                  );
+                })
+              : fichasFiltradas.map((f) => <FichaCard key={f.id} f={f} />)}
           </div>
         )}
 
         {vista === "materiales" && <MaterialesPanel user={user} materiales={materiales} recargar={cargarTodo} />}
         {vista === "grupos" && <GruposPanel user={user} grupos={grupos} tutores={tutores} recargar={cargarTodo} />}
         {vista === "fichapersonal" && <FichaPersonalPanel user={user} estudiantes={estudiantes} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
-        {vista === "estudiantes" && user.role === "director" && <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} fichasPersonales={fichasPersonales} recargar={cargarTodo} estudianteFoco={estudianteFoco} />}
+        {vista === "estudiantes" && user.role === "director" && <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} fichasPersonales={fichasPersonales} recargar={cargarTodo} />}
         {vista === "tutores" && user.role === "director" && <TutoresPanel tutores={tutores} recargar={cargarTodo} />}
         {vista === "excel" && user.role === "director" && <ExcelPanel recargar={cargarTodo} />}
       </div>
@@ -1059,9 +956,8 @@ function FichaPersonalPanel({ user, estudiantes, fichasPersonales, recargar }) {
                   {fp.situacionPersonalFamiliar && (<><h4>Situación personal / familiar</h4><p>{fp.situacionPersonalFamiliar}</p></>)}
                   <h4>Fortalezas</h4><p>{fp.fortalezas || "—"}</p>
                   <h4>Observaciones</h4><p>{fp.observaciones || "—"}</p>
-                  <a className="secondary-btn" style={{ marginTop: 6, marginBottom: 10 }} href={`/api/fichas-personales/${fp.id}/word`}><IconDownload size={14} /> Descargar en Word</a>
                   {(user.role === "director" || fp.tutorUsername === user.username) && (
-                    <div><button type="button" className="icon-btn delete-caso" onClick={() => eliminar(fp.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar</span></button></div>
+                    <button type="button" className="icon-btn delete-caso" onClick={() => eliminar(fp.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar</span></button>
                   )}
                 </div>
               )}
@@ -1073,7 +969,7 @@ function FichaPersonalPanel({ user, estudiantes, fichasPersonales, recargar }) {
   );
 }
 
-function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, estudianteFoco }) {
+function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar }) {
   const [nombre, setNombre] = useState(""); const [jornada, setJornada] = useState(""); const [carrera, setCarrera] = useState(""); const [tutorUsername, setTutorUsername] = useState("");
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -1082,13 +978,6 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
   const [expandido, setExpandido] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [notaTexto, setNotaTexto] = useState("");
-
-  useEffect(() => {
-    if (!estudianteFoco || !estudianteFoco.id) return;
-    setExpandido(estudianteFoco.id);
-    setDetalle(null);
-    api(`/api/estudiantes/${estudianteFoco.id}`).then(setDetalle).catch(() => {});
-  }, [estudianteFoco]);
 
   async function crear(e) {
     e.preventDefault(); setError("");
@@ -1286,19 +1175,11 @@ function ExcelPanel({ recargar }) {
   return (
     <div>
       <div className="card">
-        <h3 className="section-title">Exportar a Excel</h3>
+        <h3 className="section-title">Exportar</h3>
         <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Descarga todas las fichas registradas en un archivo Excel.</p>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <a className="submit-btn" href="/api/excel/exportar"><IconDownload size={16} /> Descargar Excel completo</a>
           <a className="secondary-btn" href="/api/excel/plantilla"><IconDownload size={14} /> Descargar plantilla vacía</a>
-        </div>
-      </div>
-      <div className="card">
-        <h3 className="section-title">Exportar a Word</h3>
-        <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Descarga todas las fichas en un solo documento Word, con cada ficha en una página distinta.</p>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <a className="secondary-btn" href="/api/word/fichas"><IconDownload size={14} /> Todas las fichas de sesión</a>
-          <a className="secondary-btn" href="/api/word/fichas-personales"><IconDownload size={14} /> Todas las fichas personales</a>
         </div>
       </div>
       <div className="card">
