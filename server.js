@@ -4,6 +4,10 @@ const session = require("express-session");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const ExcelJS = require("exceljs");
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType, PageBreak,
+} = require("docx");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
@@ -643,6 +647,151 @@ app.delete("/api/materiales/:id", requireRole("director"), asyncHandler(async (r
   if (material) await store.eliminarArchivoSubido(material.archivoGuardado);
   await guardar(COL_MATERIALES, lista.filter((m) => m.id !== req.params.id));
   res.status(204).end();
+}));
+
+/* ---------------- Word: exportar fichas (individuales y en lote) ---------------- */
+const COLOR_ACENTO = "2F5D50";
+const COLOR_SUAVE = "5B6355";
+
+function tituloDoc(texto) {
+  return new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after: 120 }, pageBreakBefore: false, children: [new TextRun({ text: texto, color: COLOR_ACENTO })] });
+}
+function subtitulo(texto) {
+  return new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: texto, color: COLOR_SUAVE, size: 20 })] });
+}
+function seccion(texto) {
+  return new Paragraph({ heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 60 }, children: [new TextRun({ text: texto, color: COLOR_ACENTO })] });
+}
+function parrafo(texto) {
+  return new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: texto && texto.trim() ? texto : "—" })] });
+}
+function tablaAsistencia(asistencia) {
+  const filas = [
+    new TableRow({
+      tableHeader: true,
+      children: ["Estudiante", "Presente", "Observación"].map((h) => new TableCell({
+        shading: { type: ShadingType.CLEAR, color: "auto", fill: COLOR_ACENTO },
+        children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: "FFFFFF", size: 18 })] })],
+        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+      })),
+    }),
+    ...(asistencia || []).map((a) => new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph(a.nombre || "(sin nombre)")], margins: { top: 60, bottom: 60, left: 80, right: 80 } }),
+        new TableCell({ children: [new Paragraph(a.presente ? "Sí" : "No")], margins: { top: 60, bottom: 60, left: 80, right: 80 } }),
+        new TableCell({ children: [new Paragraph(a.observacion || "")], margins: { top: 60, bottom: 60, left: 80, right: 80 } }),
+      ],
+    })),
+  ];
+  return new Table({ width: { size: 9000, type: WidthType.DXA }, rows: filas });
+}
+function listaDificultades(dif) {
+  const nombres = { academica: "Académica", emocional: "Emocional / psicosocial", social: "Social o de integración", tramites: "Desconocimiento de trámites/servicios", otra: dif && dif.otraTexto ? `Otra: ${dif.otraTexto}` : "Otra" };
+  const activas = Object.entries(nombres).filter(([k]) => dif && dif[k]);
+  if (activas.length === 0) return parrafo("Ninguna registrada.");
+  return activas.map(([, texto]) => new Paragraph({ bullet: { level: 0 }, spacing: { after: 40 }, children: [new TextRun(texto)] }));
+}
+
+function bloqueFichaSesion(f, incluirDerivacion) {
+  const bloque = [
+    tituloDoc("Ficha de sesión"),
+    subtitulo(`${f.tutor || "Tutor/a sin nombre"} · Sesión ${f.sesion || "—"} · ${f.fecha || "sin fecha"} · ${f.jornada || "sin jornada"} · ${f.modalidad || "sin modalidad"}`),
+    seccion("Asistencia"),
+    tablaAsistencia(f.asistencia),
+    seccion("Temas abordados"),
+    parrafo(f.temas),
+    seccion("Situaciones relevantes, acuerdos y solicitudes"),
+    parrafo(f.situaciones),
+    seccion("Dificultades detectadas"),
+    ...[].concat(listaDificultades(f.dificultades)),
+    seccion("Seguimiento"),
+    parrafo(`¿Cómo se sintió el/la tutor/a?: ${f.seguimiento?.comoSeSintio || "—"}`),
+    parrafo(`¿Recursos suficientes?: ${f.seguimiento?.recursosSuficientes || "—"} · ¿Manejó las dudas?: ${f.seguimiento?.logroManejarDudas || "—"} · ¿Necesita apoyo?: ${f.seguimiento?.necesitaApoyo || "—"}`),
+    parrafo(`Comentarios al equipo coordinador: ${f.seguimiento?.comentariosCoordinador || "—"}`),
+    seccion("Clasificación"),
+    parrafo(`Urgencia: ${f.urgencia}`),
+  ];
+  if (incluirDerivacion) {
+    bloque.push(
+      seccion("Procedimiento / derivación"),
+      parrafo(`Estado: ${f.estadoProcedimiento || "—"}`),
+      parrafo(`Procedimiento actual: ${f.procedimientoActual || "—"}`),
+      ...(f.notas && f.notas.length ? f.notas.map((n) => parrafo(`• ${n.texto} (${n.autor || ""}, ${new Date(n.fecha).toLocaleDateString("es-CL")})`)) : [parrafo("Sin notas registradas.")])
+    );
+  }
+  return bloque;
+}
+
+function bloqueFichaPersonal(fp) {
+  return [
+    tituloDoc(`Ficha personal — ${fp.estudianteNombre}`),
+    subtitulo(`Tutor/a: ${fp.tutorNombre} · Fecha: ${fp.fecha}`),
+    seccion("Motivo de ingreso al programa"),
+    parrafo(fp.motivoIngreso),
+    seccion("Situación académica"),
+    parrafo(fp.situacionAcademica),
+    seccion("Situación personal / familiar"),
+    parrafo(fp.situacionPersonalFamiliar),
+    seccion("Fortalezas y recursos"),
+    parrafo(fp.fortalezas),
+    seccion("Dificultades detectadas"),
+    ...[].concat(listaDificultades(fp.dificultades)),
+    seccion("Observaciones y seguimiento"),
+    parrafo(fp.observaciones),
+    seccion("Clasificación"),
+    parrafo(`Urgencia: ${fp.urgencia}`),
+  ];
+}
+
+async function enviarDocx(res, children, nombreArchivo) {
+  const doc = new Document({ sections: [{ properties: {}, children }] });
+  const buffer = await Packer.toBuffer(doc);
+  res.setHeader("Content-Disposition", `attachment; filename="${nombreArchivo}"`);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  res.send(buffer);
+}
+
+app.get("/api/fichas/:id/word", requireAuth, asyncHandler(async (req, res) => {
+  const f = (await leer(COL_FICHAS, [])).find((x) => x.id === req.params.id);
+  if (!f) return res.status(404).json({ error: "Ficha no encontrada." });
+  const esDirector = req.session.user.role === "director";
+  if (!esDirector && f.tutorUsername !== req.session.user.username) {
+    return res.status(403).json({ error: "No puedes descargar la ficha de otro/a tutor/a." });
+  }
+  await enviarDocx(res, bloqueFichaSesion(f, esDirector), `ficha-sesion-${(f.tutor || "").replace(/\s+/g, "_")}-${f.fecha}.docx`);
+}));
+
+app.get("/api/fichas-personales/:id/word", requireAuth, asyncHandler(async (req, res) => {
+  const fp = (await leer(COL_FICHAS_PERSONALES, [])).find((x) => x.id === req.params.id);
+  if (!fp) return res.status(404).json({ error: "Ficha no encontrada." });
+  if (req.session.user.role === "tutor" && fp.tutorUsername !== req.session.user.username) {
+    return res.status(403).json({ error: "No puedes descargar la ficha de otro/a tutor/a." });
+  }
+  await enviarDocx(res, bloqueFichaPersonal(fp), `ficha-personal-${fp.estudianteNombre.replace(/\s+/g, "_")}-${fp.fecha}.docx`);
+}));
+
+app.get("/api/word/fichas", requireRole("director"), asyncHandler(async (req, res) => {
+  const fichas = await leer(COL_FICHAS, []);
+  if (fichas.length === 0) return res.status(400).json({ error: "No hay fichas de sesión para exportar." });
+  let children = [];
+  fichas.forEach((f, i) => {
+    const bloque = bloqueFichaSesion(f, true);
+    if (i > 0) bloque[0] = new Paragraph({ heading: HeadingLevel.HEADING_1, pageBreakBefore: true, spacing: { after: 120 }, children: [new TextRun({ text: "Ficha de sesión", color: COLOR_ACENTO })] });
+    children = children.concat(bloque);
+  });
+  await enviarDocx(res, children, "fichas-sesion-dapsi.docx");
+}));
+
+app.get("/api/word/fichas-personales", requireRole("director"), asyncHandler(async (req, res) => {
+  const fichas = await leer(COL_FICHAS_PERSONALES, []);
+  if (fichas.length === 0) return res.status(400).json({ error: "No hay fichas personales para exportar." });
+  let children = [];
+  fichas.forEach((fp, i) => {
+    const bloque = bloqueFichaPersonal(fp);
+    if (i > 0) bloque[0] = new Paragraph({ heading: HeadingLevel.HEADING_1, pageBreakBefore: true, spacing: { after: 120 }, children: [new TextRun({ text: `Ficha personal — ${fp.estudianteNombre}`, color: COLOR_ACENTO })] });
+    children = children.concat(bloque);
+  });
+  await enviarDocx(res, children, "fichas-personales-dapsi.docx");
 }));
 
 /* ---------------- Excel: exportar / plantilla / importar (solo director) ---------------- */
