@@ -8,16 +8,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
   html, body { margin: 0; padding: 0; background: #EDEAE1; }
   #root { min-height: 100vh; }
   .dapsi-app {
-    --bg: #EDEAE1; --surface: #FFFFFF; --surface-alt: #F5F3EC;
-    --ink: #23291F; --ink-soft: #5B6355; --line: #DAD5C7;
-    --accent: #2F5D50; --accent-soft: #DCE7DF;
+    --bg: #EEF2F6; --surface: #FFFFFF; --surface-alt: #E7EEF4;
+    --ink: #172431; --ink-soft: #57697A; --line: #D6E0E8;
+    --accent: #004677; --accent-soft: #DCE7F1;
+    --gold: #F6BE00; --gold-soft: #FDF2D2;
     --critico: #A83B3B; --critico-soft: #F3DEDD;
     --urgente: #C17A2E; --urgente-soft: #F3E4D0;
-    --normal: #4C7A5E; --normal-soft: #DEEAE1;
+    --normal: #3C7A4E; --normal-soft: #DCEEE1;
     font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); background: var(--bg);
     min-height: 100vh; padding: 28px 20px 60px; box-sizing: border-box;
   }
@@ -25,19 +26,20 @@
   .shell { max-width: 980px; margin: 0 auto; }
   .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; }
   .wordmark { display: flex; align-items: center; gap: 12px; }
-  .wordmark-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
-  .wordmark h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+  .logo-ucsh { height: 42px; width: auto; flex-shrink: 0; }
+  .header { border-bottom: 3px solid var(--gold); padding-bottom: 16px; }
+  .wordmark h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 24px; margin: 0; letter-spacing: -0.01em; }
   .wordmark p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
   .userbox { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
   .role-pill { background: var(--accent-soft); color: var(--accent); padding: 3px 9px; border-radius: 100px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
   .link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 12.5px; padding: 0; }
   .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0; }
-  .tab-btn { font-family: 'Fraunces', serif; font-size: 13.5px; font-weight: 500; padding: 10px 16px 8px; border: 1px solid var(--line); border-bottom: none; background: var(--surface-alt); border-radius: 8px 8px 0 0; cursor: pointer; color: var(--ink-soft); position: relative; top: 1px; }
+  .tab-btn { font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 500; padding: 10px 16px 8px; border: 1px solid var(--line); border-bottom: none; background: var(--surface-alt); border-radius: 8px 8px 0 0; cursor: pointer; color: var(--ink-soft); position: relative; top: 1px; }
   .tab-btn.active { background: var(--surface); color: var(--ink); border-color: var(--ink); box-shadow: 0 -2px 0 var(--accent) inset; }
   .note { font-size: 12px; color: var(--ink-soft); background: var(--surface-alt); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 18px; }
   .error-box { font-size: 12.5px; color: var(--critico); background: var(--critico-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin-bottom: 16px; }
-  .section-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--ink-soft); }
   label.field span { font-weight: 500; }
@@ -60,7 +62,7 @@
   .campo-sn-btns { display: flex; gap: 4px; }
   .sn-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--ink-soft); }
   .sn-btn-on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .submit-btn { font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 12px 22px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .submit-btn { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 14.5px; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 12px 22px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
   .submit-btn:disabled { opacity: 0.6; cursor: default; }
   .secondary-btn { font-family: 'IBM Plex Sans'; font-weight: 500; font-size: 13px; background: var(--surface-alt); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
   .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 100px; }
@@ -77,7 +79,7 @@
   .search-box input:focus { outline: none; }
   .toggle-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 8px 14px; font-size: 12.5px; cursor: pointer; color: var(--ink-soft); }
   .toggle-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .grupo-header { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; margin: 20px 0 8px; padding: 10px 14px; background: var(--surface-alt); border: 1px solid var(--line); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .grupo-header { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px; margin: 20px 0 8px; padding: 10px 14px; background: var(--surface-alt); border: 1px solid var(--line); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
   .grupo-meta { font-family: 'IBM Plex Sans'; font-weight: 400; font-size: 12px; color: var(--ink-soft); }
   .caso-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; position: relative; }
   .caso-tab { position: absolute; top: 0; left: 0; width: 5px; height: 100%; }
@@ -86,7 +88,7 @@
   .tab-normal { background: var(--normal); }
   .caso-head { padding: 14px 16px 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; flex-wrap: wrap; }
   .caso-head-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .caso-tutor { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; }
+  .caso-tutor { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px; }
   .caso-meta { font-size: 11.5px; color: var(--ink-soft); font-family: 'IBM Plex Mono', monospace; }
   .caso-excerpt { font-size: 12.5px; color: var(--ink-soft); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .caso-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -95,7 +97,7 @@
   .caso-body { padding: 4px 20px 20px; border-top: 1px solid var(--line); background: var(--surface-alt); }
   .caso-body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
   @media (max-width: 640px) { .caso-body-grid { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(2,1fr); } }
-  .caso-body h4 { font-family: 'Fraunces', serif; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); margin: 0 0 6px; }
+  .caso-body h4 { font-family: 'Space Grotesk', sans-serif; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); margin: 0 0 6px; }
   .caso-body p { font-size: 13px; margin: 0 0 10px; line-height: 1.5; }
   .asist-list { font-size: 12.5px; margin: 0; padding-left: 16px; }
   .edit-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
@@ -106,11 +108,11 @@
   .nota-add input { flex: 1; }
   .nota-add button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0 12px; cursor: pointer; }
   .empty-state { text-align: center; padding: 60px 20px; color: var(--ink-soft); }
-  .empty-state h3 { font-family: 'Fraunces', serif; color: var(--ink); font-size: 17px; margin-bottom: 6px; }
+  .empty-state h3 { font-family: 'Space Grotesk', sans-serif; color: var(--ink); font-size: 17px; margin-bottom: 6px; }
   .delete-caso { color: var(--critico); }
   .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
   .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 32px; width: 340px; }
-  .login-card h1 { font-family: 'Fraunces', serif; font-size: 22px; margin: 0 0 4px; }
+  .login-card h1 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin: 0 0 4px; }
   .login-card p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 20px; }
   .login-card label { display: block; font-size: 12.5px; margin-bottom: 12px; }
   .login-card label span { display: block; margin-bottom: 4px; font-weight: 500; }
@@ -218,7 +220,8 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="dapsi-app login-wrap">
       <div className="login-card">
-        <h1>DAPSI · UCSH</h1>
+        <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46, marginBottom: 18 }} />
+        <h1>DAPSI</h1>
         <p>Inicia sesión para continuar</p>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={enviar}>
@@ -493,8 +496,8 @@ function App() {
       <div className="shell">
         <div className="header">
           <div className="wordmark">
-            <div className="wordmark-icon"><IconFolder size={20} /></div>
-            <div><h1>DAPSI · UCSH</h1><p>Acompañamiento Inicial en Trabajo Social</p></div>
+            <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" className="logo-ucsh" />
+            <div><h1>DAPSI</h1><p>Acompañamiento Inicial en Trabajo Social</p></div>
           </div>
           <div className="userbox">
             <span>{user.nombre}</span><span className="role-pill">{user.role}</span>
@@ -929,7 +932,7 @@ function GruposPanel({ user, grupos, tutores, recargar }) {
           <div key={g.id} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 14, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div>
-                <strong style={{ fontFamily: "'Fraunces', serif" }}>{g.nombre}</strong>{" "}
+                <strong style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{g.nombre}</strong>{" "}
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>· {g.tutorNombre} · {g.estudiantes.length} estudiante(s)</span>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
