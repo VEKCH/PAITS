@@ -453,6 +453,73 @@ app.get("/api/estudiantes", requireAuth, asyncHandler(async (req, res) => {
   res.json(lista);
 }));
 
+const COLUMNAS_ESTUDIANTES_EXCEL = ["Nombre", "Jornada", "Carrera", "UsuarioTutor"];
+
+app.get("/api/estudiantes/plantilla", requireRole("director"), asyncHandler(async (req, res) => {
+  const libro = new ExcelJS.Workbook();
+  const hoja = libro.addWorksheet("Plantilla");
+  hoja.columns = COLUMNAS_ESTUDIANTES_EXCEL.map((c) => ({ header: c, key: c, width: 24 }));
+  hoja.getRow(1).font = { bold: true };
+  const buffer = await libro.xlsx.writeBuffer();
+  res.setHeader("Content-Disposition", "attachment; filename=plantilla-estudiantes-dapsi.xlsx");
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.send(Buffer.from(buffer));
+}));
+
+const uploadEstudiantesExcel = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+app.post("/api/estudiantes/importar", requireRole("director"), uploadEstudiantesExcel.single("archivo"), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Debes adjuntar un archivo .xlsx" });
+  let filas = [];
+  try {
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(req.file.buffer);
+    const hoja = libro.worksheets[0];
+    const encabezados = [];
+    hoja.getRow(1).eachCell({ includeEmpty: false }, (celda, col) => { encabezados[col] = String(celda.value || "").trim(); });
+    hoja.eachRow({ includeEmpty: false }, (fila, numFila) => {
+      if (numFila === 1) return;
+      const obj = {};
+      fila.eachCell({ includeEmpty: false }, (celda, col) => {
+        if (encabezados[col]) obj[encabezados[col]] = celda.value != null ? String(celda.value).trim() : "";
+      });
+      if (Object.keys(obj).length) filas.push(obj);
+    });
+  } catch (e) {
+    return res.status(400).json({ error: "No se pudo leer el archivo Excel." });
+  }
+
+  const usuarios = await leer(COL_USUARIOS, []);
+  const lista = await leer(COL_ESTUDIANTES, []);
+  let creadas = 0;
+  const omitidas = [];
+
+  for (const fila of filas) {
+    if (!fila.Nombre) continue;
+    const tutorUsername = (fila.UsuarioTutor || "").trim().toLowerCase();
+    const t = usuarios.find((u) => u.username === tutorUsername && u.role === "tutor");
+    if (!t) {
+      omitidas.push({ nombre: fila.Nombre, motivo: tutorUsername ? `usuario de tutor/a "${fila.UsuarioTutor}" no encontrado` : "falta UsuarioTutor" });
+      continue;
+    }
+    lista.unshift({
+      id: nuevoId(),
+      nombre: fila.Nombre,
+      jornada: fila.Jornada || "",
+      carrera: fila.Carrera || "",
+      tutorUsername: t.username,
+      tutorNombre: t.nombre,
+      estado: "Activo",
+      estadoCaso: "Sin seguimiento",
+      procedimientoActual: "",
+      notasCaso: [],
+      creadoEn: new Date().toISOString(),
+    });
+    creadas++;
+  }
+  await guardar(COL_ESTUDIANTES, lista);
+  res.json({ creadas, omitidas });
+}));
+
 app.get("/api/estudiantes/:id", requireAuth, asyncHandler(async (req, res) => {
   const estudiante = (await leer(COL_ESTUDIANTES, [])).find((e) => e.id === req.params.id);
   if (!estudiante) return res.status(404).json({ error: "Estudiante no encontrado." });
@@ -485,6 +552,7 @@ app.post("/api/estudiantes", requireRole("director"), asyncHandler(async (req, r
   if (!tutorUsername) return res.status(400).json({ error: "Debes asignar un/a tutor/a." });
   const t = (await leer(COL_USUARIOS, [])).find((u) => u.username === tutorUsername && u.role === "tutor");
   if (!t) return res.status(400).json({ error: "Tutor/a no encontrado/a." });
+  const ahora = new Date().toISOString();
   const estudiante = {
     id: nuevoId(),
     nombre: nombre.trim(),
@@ -496,7 +564,8 @@ app.post("/api/estudiantes", requireRole("director"), asyncHandler(async (req, r
     estadoCaso: "Sin seguimiento",
     procedimientoActual: "",
     notasCaso: [],
-    creadoEn: new Date().toISOString(),
+    creadoEn: ahora,
+    actualizadoEn: ahora,
   };
   const lista = await leer(COL_ESTUDIANTES, []);
   lista.unshift(estudiante);
@@ -509,13 +578,18 @@ app.patch("/api/estudiantes/:id", requireRole("director"), asyncHandler(async (r
   const idx = lista.findIndex((e) => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Estudiante no encontrado." });
   const permitido = ["nombre", "jornada", "carrera", "estado", "estadoCaso", "procedimientoActual", "tutorUsername"];
+  let huboCambioDeCaso = false;
   for (const campo of permitido) {
-    if (campo in req.body) lista[idx][campo] = req.body[campo];
+    if (campo in req.body) {
+      lista[idx][campo] = req.body[campo];
+      if (campo === "estadoCaso" || campo === "procedimientoActual") huboCambioDeCaso = true;
+    }
   }
   if (req.body.tutorUsername) {
     const t = (await leer(COL_USUARIOS, [])).find((u) => u.username === req.body.tutorUsername && u.role === "tutor");
     if (t) lista[idx].tutorNombre = t.nombre;
   }
+  if (huboCambioDeCaso) lista[idx].actualizadoEn = new Date().toISOString();
   await guardar(COL_ESTUDIANTES, lista);
   res.json(lista[idx]);
 }));
@@ -526,7 +600,9 @@ app.post("/api/estudiantes/:id/notas", requireRole("director"), asyncHandler(asy
   const lista = await leer(COL_ESTUDIANTES, []);
   const idx = lista.findIndex((e) => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Estudiante no encontrado." });
-  lista[idx].notasCaso.push({ texto: texto.trim(), fecha: new Date().toISOString(), autor: req.session.user.nombre });
+  const ahora = new Date().toISOString();
+  lista[idx].notasCaso.push({ texto: texto.trim(), fecha: ahora, autor: req.session.user.nombre });
+  lista[idx].actualizadoEn = ahora;
   await guardar(COL_ESTUDIANTES, lista);
   res.json(lista[idx]);
 }));
@@ -535,6 +611,7 @@ app.delete("/api/estudiantes/:id", requireRole("director"), asyncHandler(async (
   await guardar(COL_ESTUDIANTES, (await leer(COL_ESTUDIANTES, [])).filter((e) => e.id !== req.params.id));
   res.status(204).end();
 }));
+
 
 /* ---------------- fichas personales (perfil del/de la estudiante, no de sesión) ---------------- */
 app.get("/api/fichas-personales", requireAuth, asyncHandler(async (req, res) => {
@@ -568,12 +645,9 @@ app.post("/api/fichas-personales", requireAuth, asyncHandler(async (req, res) =>
     tutorUsername,
     tutorNombre,
     fecha: datos.fecha || new Date().toISOString().slice(0, 10),
-    motivoIngreso: datos.motivoIngreso || "",
     situacionAcademica: datos.situacionAcademica || "",
-    situacionPersonalFamiliar: datos.situacionPersonalFamiliar || "",
-    fortalezas: datos.fortalezas || "",
+    situacionesRelevantes: datos.situacionesRelevantes || "",
     dificultades: datos.dificultades || {},
-    observaciones: datos.observaciones || "",
     urgencia: ["Crítico", "Urgente", "Normal"].includes(datos.urgencia) ? datos.urgencia : "Normal",
     creadoEn: new Date().toISOString(),
   };
@@ -726,18 +800,12 @@ function bloqueFichaPersonal(fp) {
   return [
     tituloDoc(`Ficha personal — ${fp.estudianteNombre}`),
     subtitulo(`Tutor/a: ${fp.tutorNombre} · Fecha: ${fp.fecha}`),
-    seccion("Motivo de ingreso al programa"),
-    parrafo(fp.motivoIngreso),
     seccion("Situación académica"),
     parrafo(fp.situacionAcademica),
-    seccion("Situación personal / familiar"),
-    parrafo(fp.situacionPersonalFamiliar),
-    seccion("Fortalezas y recursos"),
-    parrafo(fp.fortalezas),
+    seccion("Situaciones relevantes"),
+    parrafo(fp.situacionesRelevantes),
     seccion("Dificultades detectadas"),
     ...[].concat(listaDificultades(fp.dificultades)),
-    seccion("Observaciones y seguimiento"),
-    parrafo(fp.observaciones),
     seccion("Clasificación"),
     parrafo(`Urgencia: ${fp.urgencia}`),
   ];
@@ -888,6 +956,27 @@ app.post("/api/excel/importar", requireRole("director"), uploadExcel.single("arc
   }
   await guardar(COL_FICHAS, lista);
   res.json({ creadas });
+}));
+
+/* ---------------- respaldo completo (solo director) ---------------- */
+app.get("/api/respaldo", requireRole("director"), asyncHandler(async (req, res) => {
+  const usuarios = (await leer(COL_USUARIOS, [])).map((u) => ({
+    username: u.username, nombre: u.nombre, role: u.role, activo: u.activo,
+  })); // nunca se incluye passwordHash en el respaldo
+  const respaldo = {
+    generadoEn: new Date().toISOString(),
+    modoAlmacenamiento: store.USANDO_MONGO ? "mongodb" : "archivos-locales",
+    usuarios,
+    fichas: await leer(COL_FICHAS, []),
+    estudiantes: await leer(COL_ESTUDIANTES, []),
+    fichasPersonales: await leer(COL_FICHAS_PERSONALES, []),
+    grupos: await leer(COL_GRUPOS, []),
+    materiales: (await leer(COL_MATERIALES, [])).map((m) => ({ ...m, nota: "El archivo en sí no está incluido en este respaldo, solo sus datos." })),
+  };
+  const fecha = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Disposition", `attachment; filename="respaldo-dapsi-${fecha}.json"`);
+  res.setHeader("Content-Type", "application/json");
+  res.send(JSON.stringify(respaldo, null, 2));
 }));
 
 /* ---------------- frontend estático ---------------- */
