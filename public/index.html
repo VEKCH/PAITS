@@ -350,7 +350,10 @@ function App() {
     setFichas((lista) => lista.map((x) => (x.id === id ? f : x)));
     setNotaTexto((n) => ({ ...n, [id]: "" }));
   }
-  async function eliminarCaso(id) { await api(`/api/fichas/${id}`, { method: "DELETE" }); setFichas((l) => l.filter((f) => f.id !== id)); }
+  async function eliminarCaso(id) {
+    if (!window.confirm("¿Eliminar esta ficha de sesión? Esta acción no se puede deshacer.")) return;
+    await api(`/api/fichas/${id}`, { method: "DELETE" }); setFichas((l) => l.filter((f) => f.id !== id));
+  }
 
   const fichasFiltradas = fichas
     .filter((f) => filtroUrgencia === "Todas" || f.urgencia === filtroUrgencia)
@@ -373,6 +376,8 @@ function App() {
     const tabClass = f.urgencia === "Crítico" ? "tab-critico" : f.urgencia === "Urgente" ? "tab-urgente" : "tab-normal";
     const abierto = expandido === f.id;
     const esDirector = user.role === "director";
+    const [procTexto, setProcTexto] = useState(f.procedimientoActual || "");
+    useEffect(() => { setProcTexto(f.procedimientoActual || ""); }, [f.procedimientoActual]);
     return (
       <div className="caso-card">
         <div className={`caso-tab ${tabClass}`} />
@@ -402,7 +407,14 @@ function App() {
               {esDirector && (
                 <div>
                   <h4>Procedimiento / derivación actual</h4>
-                  <div className="edit-row"><input value={f.procedimientoActual || ""} onChange={(e) => actualizarCaso(f.id, { procedimientoActual: e.target.value })} placeholder="Ej: Derivado a Oficina de Género" /></div>
+                  <div className="edit-row">
+                    <input
+                      value={procTexto}
+                      onChange={(e) => setProcTexto(e.target.value)}
+                      onBlur={() => { if (procTexto !== (f.procedimientoActual || "")) actualizarCaso(f.id, { procedimientoActual: procTexto }); }}
+                      placeholder="Ej: Derivado a Oficina de Género"
+                    />
+                  </div>
                   <div className="edit-row">
                     <select value={f.estadoProcedimiento} onChange={(e) => actualizarCaso(f.id, { estadoProcedimiento: e.target.value })}>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}</select>
                     <select value={f.urgencia} onChange={(e) => actualizarCaso(f.id, { urgencia: e.target.value })}>
@@ -463,7 +475,7 @@ function App() {
           <div className="caso-head-left">
             <span className="caso-tutor">{fp.estudianteNombre}</span>
             <span className="caso-meta">{fp.fecha} · {fp.tutorNombre}</span>
-            <span className="caso-excerpt">{fp.motivoIngreso || fp.observaciones || "Sin detalle registrado."}</span>
+            <span className="caso-excerpt">{fp.situacionesRelevantes || fp.situacionAcademica || "Sin detalle registrado."}</span>
           </div>
           <div className="caso-head-right">
             <UrgenciaBadge nivel={fp.urgencia} />
@@ -472,11 +484,8 @@ function App() {
         </div>
         {abierto && (
           <div className="caso-body">
-            <h4>Motivo de ingreso</h4><p>{fp.motivoIngreso || "—"}</p>
             <h4>Situación académica</h4><p>{fp.situacionAcademica || "—"}</p>
-            {fp.situacionPersonalFamiliar && (<><h4>Situación personal / familiar</h4><p>{fp.situacionPersonalFamiliar}</p></>)}
-            <h4>Fortalezas</h4><p>{fp.fortalezas || "—"}</p>
-            <h4>Observaciones</h4><p>{fp.observaciones || "—"}</p>
+            <h4>Situaciones relevantes</h4><p>{fp.situacionesRelevantes || "—"}</p>
             <a className="secondary-btn" style={{ marginTop: 6, marginBottom: 10 }} href={`/api/fichas-personales/${fp.id}/word`}><IconDownload size={14} /> Descargar en Word</a>
             {user.role === "director" && (
               <div>
@@ -775,7 +784,10 @@ function MaterialesPanel({ user, materiales, recargar }) {
     } catch (e) { setError(e.message); }
     setSubiendo(false);
   }
-  async function eliminar(id) { await api(`/api/materiales/${id}`, { method: "DELETE" }); recargar(); }
+  async function eliminar(id) {
+    if (!window.confirm("¿Eliminar este material? Esta acción no se puede deshacer.")) return;
+    await api(`/api/materiales/${id}`, { method: "DELETE" }); recargar();
+  }
 
   return (
     <div>
@@ -818,7 +830,10 @@ function TutoresPanel({ tutores, recargar }) {
     catch (e) { setError(e.message); }
   }
   async function toggleActivo(t) { await api(`/api/tutores/${t.id}`, { method: "PATCH", body: JSON.stringify({ activo: !t.activo }) }); recargar(); }
-  async function eliminar(id) { await api(`/api/tutores/${id}`, { method: "DELETE" }); recargar(); }
+  async function eliminar(id, nombreTutor) {
+    if (!window.confirm(`¿Eliminar la cuenta de ${nombreTutor}? Sus fichas y estudiantes asignados NO se borran, pero quedarán sin tutor/a asociado/a. Esta acción no se puede deshacer.`)) return;
+    await api(`/api/tutores/${id}`, { method: "DELETE" }); recargar();
+  }
   async function resetPassword(t) {
     const nueva = prompt(`Nueva clave para ${t.nombre}:`);
     if (!nueva) return;
@@ -851,7 +866,7 @@ function TutoresPanel({ tutores, recargar }) {
                 <td style={{ display: "flex", gap: 6 }}>
                   <button className="secondary-btn" onClick={() => toggleActivo(t)}>{t.activo ? "Desactivar" : "Activar"}</button>
                   <button className="secondary-btn" onClick={() => resetPassword(t)}>Restablecer clave</button>
-                  <button className="icon-btn delete-caso" onClick={() => eliminar(t.id)}><IconTrash size={15} /></button>
+                  <button className="icon-btn delete-caso" onClick={() => eliminar(t.id, t.nombre)}><IconTrash size={15} /></button>
                 </td>
               </tr>
             ))}
@@ -895,7 +910,10 @@ function GruposPanel({ user, grupos, tutores, recargar }) {
     setEditando(null);
     recargar();
   }
-  async function eliminar(id) { await api(`/api/grupos/${id}`, { method: "DELETE" }); recargar(); }
+  async function eliminar(id) {
+    if (!window.confirm("¿Eliminar este grupo? Esta acción no se puede deshacer.")) return;
+    await api(`/api/grupos/${id}`, { method: "DELETE" }); recargar();
+  }
 
   return (
     <div>
@@ -957,7 +975,7 @@ function GruposPanel({ user, grupos, tutores, recargar }) {
 }
 
 function FormularioFichaPersonal({ user, estudiantes, onCreado }) {
-  const vacio = { estudianteId: "", fecha: new Date().toISOString().slice(0, 10), motivoIngreso: "", situacionAcademica: "", situacionPersonalFamiliar: "", fortalezas: "", dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" }, observaciones: "", urgencia: "Normal" };
+  const vacio = { estudianteId: "", fecha: new Date().toISOString().slice(0, 10), situacionAcademica: "", situacionesRelevantes: "", dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" }, urgencia: "Normal" };
   const [form, setForm] = useState(vacio);
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -1007,10 +1025,14 @@ function FormularioFichaPersonal({ user, estudiantes, onCreado }) {
           </label>
           <label className="field"><span>Fecha</span><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></label>
         </div>
-        <label className="field" style={{ marginBottom: 12 }}><span>Motivo de ingreso al programa</span><textarea value={form.motivoIngreso} onChange={(e) => setForm({ ...form, motivoIngreso: e.target.value })} /></label>
-        <label className="field" style={{ marginBottom: 12 }}><span>Situación académica</span><textarea value={form.situacionAcademica} onChange={(e) => setForm({ ...form, situacionAcademica: e.target.value })} /></label>
-        <label className="field" style={{ marginBottom: 12 }}><span>Situación personal / familiar (si aplica)</span><textarea value={form.situacionPersonalFamiliar} onChange={(e) => setForm({ ...form, situacionPersonalFamiliar: e.target.value })} /></label>
-        <label className="field" style={{ marginBottom: 12 }}><span>Fortalezas y recursos personales</span><textarea value={form.fortalezas} onChange={(e) => setForm({ ...form, fortalezas: e.target.value })} /></label>
+        <label className="field" style={{ marginBottom: 12 }}>
+          <span>Situación académica</span>
+          <textarea value={form.situacionAcademica} onChange={(e) => setForm({ ...form, situacionAcademica: e.target.value })} placeholder="Ej: está con malas notas o situaciones relacionadas" />
+        </label>
+        <label className="field" style={{ marginBottom: 12 }}>
+          <span>Situaciones relevantes</span>
+          <textarea value={form.situacionesRelevantes} onChange={(e) => setForm({ ...form, situacionesRelevantes: e.target.value })} />
+        </label>
 
         <div className="dificultades-grid" style={{ marginBottom: 12 }}>
           <CampoSiNo label="Académica" value={form.dificultades.academica ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, academica: v === "Sí" } })} />
@@ -1020,8 +1042,6 @@ function FormularioFichaPersonal({ user, estudiantes, onCreado }) {
           <CampoSiNo label="Otra" value={form.dificultades.otra ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, otra: v === "Sí" } })} />
         </div>
         {form.dificultades.otra && <label className="field" style={{ marginBottom: 12 }}><span>Detalle de "otra" dificultad</span><input value={form.dificultades.otraTexto} onChange={(e) => setForm({ ...form, dificultades: { ...form.dificultades, otraTexto: e.target.value } })} /></label>}
-
-        <label className="field" style={{ marginBottom: 12 }}><span>Observaciones y seguimiento</span><textarea value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></label>
 
         <label className="field" style={{ marginBottom: 14 }}><span>Nivel de urgencia de este perfil</span>
           <div className="dificultades-grid">
@@ -1040,6 +1060,58 @@ function FormularioFichaPersonal({ user, estudiantes, onCreado }) {
   );
 }
 
+
+function ImportarEstudiantesCard({ recargar }) {
+  const [archivo, setArchivo] = useState(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState("");
+  const [resultado, setResultado] = useState(null);
+
+  async function importar(e) {
+    e.preventDefault();
+    if (!archivo) return;
+    setSubiendo(true); setError(""); setResultado(null);
+    const fd = new FormData(); fd.append("archivo", archivo);
+    try {
+      const res = await fetch("/api/estudiantes/importar", { method: "POST", body: fd, headers: cabecerasCsrf() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al importar");
+      setResultado(data); setArchivo(null); recargar();
+    } catch (e) { setError(e.message); }
+    setSubiendo(false);
+  }
+
+  return (
+    <div className="card">
+      <h3 className="section-title">Importar estudiantes desde Excel</h3>
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
+        Trae una lista que ya tengas en otra planilla (matrícula, otro sistema, etc.) y regístrala de una sola vez, sin escribir estudiante por estudiante.
+      </p>
+      <div style={{ marginBottom: 14 }}>
+        <a className="secondary-btn" href="/api/estudiantes/plantilla"><IconDownload size={14} /> Descargar plantilla</a>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      {resultado && (
+        <div className="note">
+          {resultado.creadas} estudiante(s) creado(s){resultado.omitidas.length > 0 ? ` · ${resultado.omitidas.length} fila(s) omitida(s)` : ""}.
+          {resultado.omitidas.length > 0 && (
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {resultado.omitidas.map((o, i) => <li key={i}>{o.nombre}: {o.motivo}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+      <form onSubmit={importar}>
+        <input type="file" accept=".xlsx,.xls" onChange={(e) => setArchivo(e.target.files[0])} style={{ marginBottom: 12 }} required />
+        <br />
+        <button className="submit-btn" disabled={subiendo}><IconUpload size={16} /> {subiendo ? "Importando…" : "Importar Excel"}</button>
+      </form>
+      <p style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 10, marginBottom: 0 }}>
+        La columna <strong>UsuarioTutor</strong> debe coincidir con el usuario exacto de un/a tutor/a ya creado/a en "Tutores". Si una fila no coincide, se avisa cuál y se omite, sin bloquear al resto.
+      </p>
+    </div>
+  );
+}
 
 function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, estudianteFoco }) {
   const [nombre, setNombre] = useState(""); const [jornada, setJornada] = useState(""); const [carrera, setCarrera] = useState(""); const [tutorUsername, setTutorUsername] = useState("");
@@ -1087,7 +1159,10 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
     setDetalle(d);
     recargar();
   }
-  async function eliminar(id) { await api(`/api/estudiantes/${id}`, { method: "DELETE" }); if (expandido === id) setExpandido(null); recargar(); }
+  async function eliminar(id, nombreEstudiante) {
+    if (!window.confirm(`¿Eliminar el registro de ${nombreEstudiante}? Se borra su ficha, estado del caso y notas. Sus fichas personales y sesiones NO se borran, pero quedarán sin vincular. Esta acción no se puede deshacer.`)) return;
+    await api(`/api/estudiantes/${id}`, { method: "DELETE" }); if (expandido === id) setExpandido(null); recargar();
+  }
 
   const listaFiltrada = estudiantes
     .filter((e) => filtroTutor === "Todos" || e.tutorUsername === filtroTutor)
@@ -1105,8 +1180,36 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
     })(),
   };
 
+  const UMBRAL_DIAS_SIN_ACTUALIZAR = 14;
+  const casosDesatendidos = estudiantes
+    .filter((e) => e.estadoCaso && !["Sin seguimiento", "Resuelto", "Cerrado sin derivación"].includes(e.estadoCaso))
+    .map((e) => ({ ...e, diasSinActualizar: Math.floor((Date.now() - new Date(e.actualizadoEn || e.creadoEn).getTime()) / 86400000) }))
+    .filter((e) => e.diasSinActualizar >= UMBRAL_DIAS_SIN_ACTUALIZAR)
+    .sort((a, b) => b.diasSinActualizar - a.diasSinActualizar);
+
   return (
     <div>
+      {casosDesatendidos.length > 0 && (
+        <div className="card" style={{ borderColor: "var(--urgente)", background: "var(--urgente-soft)" }}>
+          <h3 className="section-title" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+            <IconAlert size={16} style={{ verticalAlign: -3, marginRight: 6 }} />
+            Casos sin actualizar hace {UMBRAL_DIAS_SIN_ACTUALIZAR} días o más ({casosDesatendidos.length})
+          </h3>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
+            Estos casos siguen abiertos (no están "Sin seguimiento", "Resuelto" ni "Cerrado sin derivación") y nadie les ha cambiado el estado, el procedimiento ni agregado una nota en ese tiempo.
+          </p>
+          {casosDesatendidos.map((e) => (
+            <div key={e.id} className="material-item">
+              <div>
+                <div className="material-name">{e.nombre} <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {e.tutorNombre}</span></div>
+                <div className="material-meta">{e.estadoCaso} · sin actualizar hace {e.diasSinActualizar} día(s)</div>
+              </div>
+              <button type="button" className="secondary-btn" onClick={() => abrirDetalle(e.id)}>Ver caso</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card">
         <h3 className="section-title">Registrar estudiante</h3>
         <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Este registro y el estado de cada caso solo los ve el equipo director. Los tutores solo ven, de forma liviana, a sus propios/as estudiantes asignados/as (para poder completarles una ficha personal).</p>
@@ -1130,6 +1233,8 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
           <button className="submit-btn"><IconPlus size={16} /> Registrar estudiante</button>
         </form>
       </div>
+
+      <ImportarEstudiantesCard recargar={recargar} />
 
       <div className="stats-row">
         <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Estudiantes registrados/as</div></div>
@@ -1155,78 +1260,102 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
         <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay estudiantes para mostrar</h3><p>{estudiantes.length === 0 ? "Registra el primero arriba." : "Ajusta los filtros o la búsqueda."}</p></div>
       )}
 
-      {listaFiltrada.map((es) => {
-        const abierto = expandido === es.id;
-        const fichasDe = fichasPersonales.filter((fp) => fp.estudianteId === es.id);
-        return (
-          <div className="caso-card" key={es.id}>
-            <div className={`caso-tab ${es.estadoCaso === "Sin seguimiento" ? "tab-normal" : "tab-urgente"}`} />
-            <div className="caso-head" onClick={() => abrirDetalle(es.id)}>
-              <div className="caso-head-left">
-                <span className="caso-tutor">{es.nombre}</span>
-                <span className="caso-meta">{es.jornada || "sin jornada"} · {es.tutorNombre} {es.carrera ? `· ${es.carrera}` : ""}</span>
-                <span className="caso-excerpt">{fichasDe.length} ficha(s) personal(es) · {es.estado}</span>
+      {listaFiltrada.map((es) => (
+        <EstudianteCard
+          key={es.id}
+          es={es}
+          abierto={expandido === es.id}
+          detalle={detalle}
+          fichasDe={fichasPersonales.filter((fp) => fp.estudianteId === es.id)}
+          tutores={tutores}
+          notaTexto={notaTexto}
+          setNotaTexto={setNotaTexto}
+          abrirDetalle={abrirDetalle}
+          actualizar={actualizar}
+          agregarNota={agregarNota}
+          eliminar={eliminar}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EstudianteCard({ es, abierto, detalle, fichasDe, tutores, notaTexto, setNotaTexto, abrirDetalle, actualizar, agregarNota, eliminar }) {
+  const [procTexto, setProcTexto] = useState(es.procedimientoActual || "");
+  useEffect(() => { setProcTexto(es.procedimientoActual || ""); }, [es.procedimientoActual]);
+  return (
+    <div className="caso-card" key={es.id}>
+      <div className={`caso-tab ${es.estadoCaso === "Sin seguimiento" ? "tab-normal" : "tab-urgente"}`} />
+      <div className="caso-head" onClick={() => abrirDetalle(es.id)}>
+        <div className="caso-head-left">
+          <span className="caso-tutor">{es.nombre}</span>
+          <span className="caso-meta">{es.jornada || "sin jornada"} · {es.tutorNombre} {es.carrera ? `· ${es.carrera}` : ""}</span>
+          <span className="caso-excerpt">{fichasDe.length} ficha(s) personal(es) · {es.estado}</span>
+        </div>
+        <div className="caso-head-right">
+          {es.porcentajeAsistencia !== null ? <span className="asistencia-pill">Asistencia {es.porcentajeAsistencia}%</span> : <span className="estado-pill">Sin asistencia registrada</span>}
+          <span className="estado-pill">{es.estadoCaso}</span>
+          {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
+        </div>
+      </div>
+      {abierto && (
+        <div className="caso-body">
+          {!detalle && <p style={{ color: "var(--ink-soft)" }}>Cargando detalle…</p>}
+          {detalle && (
+            <div className="caso-body-grid">
+              <div>
+                <h4>Sesiones donde aparece ({detalle.sesiones.length})</h4>
+                {detalle.sesiones.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin sesiones registradas todavía.</p>}
+                {detalle.sesiones.map((s) => (
+                  <p key={s.id} style={{ fontSize: 12.5 }}>
+                    <strong>{s.fecha}</strong> — {s.presente ? "presente" : "ausente"} · {s.tutor}
+                    {s.situaciones ? <><br />{s.situaciones}</> : ""}
+                  </p>
+                ))}
+                <h4 style={{ marginTop: 16 }}>Fichas personales ({fichasDe.length})</h4>
+                {fichasDe.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Aún no hay fichas personales.</p>}
+                {fichasDe.map((fp) => (
+                  <p key={fp.id} style={{ fontSize: 12.5 }}>
+                    <strong>{fp.fecha}</strong> — {fp.observaciones || "sin detalle"}
+                  </p>
+                ))}
               </div>
-              <div className="caso-head-right">
-                {es.porcentajeAsistencia !== null ? <span className="asistencia-pill">Asistencia {es.porcentajeAsistencia}%</span> : <span className="estado-pill">Sin asistencia registrada</span>}
-                <span className="estado-pill">{es.estadoCaso}</span>
-                {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
+              <div>
+                <h4>Estado del caso</h4>
+                <div className="edit-row">
+                  <select value={es.estadoCaso} onChange={(ev) => actualizar(es.id, { estadoCaso: ev.target.value })}>
+                    <option value="Sin seguimiento">Sin seguimiento</option>
+                    {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <h4>Procedimiento / derivación actual</h4>
+                <div className="edit-row">
+                  <input
+                    value={procTexto}
+                    onChange={(ev) => setProcTexto(ev.target.value)}
+                    onBlur={() => { if (procTexto !== (es.procedimientoActual || "")) actualizar(es.id, { procedimientoActual: procTexto }); }}
+                    placeholder="Ej: Derivado a Oficina de Género"
+                  />
+                </div>
+                <h4>Reasignar tutor/a</h4>
+                <div className="edit-row">
+                  <select value={es.tutorUsername} onChange={(ev) => actualizar(es.id, { tutorUsername: ev.target.value })}>
+                    {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
+                  </select>
+                </div>
+                <h4>Notas del caso</h4>
+                {(detalle.estudiante.notasCaso || []).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
+                {(detalle.estudiante.notasCaso || []).map((n, i) => (<div className="nota-item" key={i}>{n.texto}<span className="nota-fecha">{n.autor} · {new Date(n.fecha).toLocaleString("es-CL")}</span></div>))}
+                <div className="nota-add">
+                  <input placeholder="Ej: se solucionó mediante derivación a Oficina de Género" value={notaTexto} onChange={(ev) => setNotaTexto(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && agregarNota(es.id)} />
+                  <button type="button" onClick={() => agregarNota(es.id)}><IconMsg size={15} /></button>
+                </div>
+                <button type="button" className="icon-btn delete-caso" style={{ marginTop: 14 }} onClick={() => eliminar(es.id, es.nombre)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar registro</span></button>
               </div>
             </div>
-            {abierto && (
-              <div className="caso-body">
-                {!detalle && <p style={{ color: "var(--ink-soft)" }}>Cargando detalle…</p>}
-                {detalle && (
-                  <div className="caso-body-grid">
-                    <div>
-                      <h4>Sesiones donde aparece ({detalle.sesiones.length})</h4>
-                      {detalle.sesiones.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin sesiones registradas todavía.</p>}
-                      {detalle.sesiones.map((s) => (
-                        <p key={s.id} style={{ fontSize: 12.5 }}>
-                          <strong>{s.fecha}</strong> — {s.presente ? "presente" : "ausente"} · {s.tutor}
-                          {s.situaciones ? <><br />{s.situaciones}</> : ""}
-                        </p>
-                      ))}
-                      <h4 style={{ marginTop: 16 }}>Fichas personales ({fichasDe.length})</h4>
-                      {fichasDe.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Aún no hay fichas personales.</p>}
-                      {fichasDe.map((fp) => (
-                        <p key={fp.id} style={{ fontSize: 12.5 }}>
-                          <strong>{fp.fecha}</strong> — {fp.motivoIngreso || fp.observaciones || "sin detalle"}
-                        </p>
-                      ))}
-                    </div>
-                    <div>
-                      <h4>Estado del caso</h4>
-                      <div className="edit-row">
-                        <select value={es.estadoCaso} onChange={(ev) => actualizar(es.id, { estadoCaso: ev.target.value })}>
-                          <option value="Sin seguimiento">Sin seguimiento</option>
-                          {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <h4>Procedimiento / derivación actual</h4>
-                      <div className="edit-row"><input value={es.procedimientoActual || ""} onChange={(ev) => actualizar(es.id, { procedimientoActual: ev.target.value })} placeholder="Ej: Derivado a Oficina de Género" /></div>
-                      <h4>Reasignar tutor/a</h4>
-                      <div className="edit-row">
-                        <select value={es.tutorUsername} onChange={(ev) => actualizar(es.id, { tutorUsername: ev.target.value })}>
-                          {tutores.map((t) => <option key={t.id} value={t.username}>{t.nombre}</option>)}
-                        </select>
-                      </div>
-                      <h4>Notas del caso</h4>
-                      {(detalle.estudiante.notasCaso || []).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
-                      {(detalle.estudiante.notasCaso || []).map((n, i) => (<div className="nota-item" key={i}>{n.texto}<span className="nota-fecha">{n.autor} · {new Date(n.fecha).toLocaleString("es-CL")}</span></div>))}
-                      <div className="nota-add">
-                        <input placeholder="Ej: se solucionó mediante derivación a Oficina de Género" value={notaTexto} onChange={(ev) => setNotaTexto(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && agregarNota(es.id)} />
-                        <button type="button" onClick={() => agregarNota(es.id)}><IconMsg size={15} /></button>
-                      </div>
-                      <button type="button" className="icon-btn delete-caso" style={{ marginTop: 14 }} onClick={() => eliminar(es.id)}><IconTrash size={14} /> <span style={{ fontSize: 12 }}>Eliminar registro</span></button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1268,6 +1397,14 @@ function ExcelPanel({ recargar }) {
           <a className="secondary-btn" href="/api/word/fichas"><IconDownload size={14} /> Todas las fichas de sesión</a>
           <a className="secondary-btn" href="/api/word/fichas-personales"><IconDownload size={14} /> Todas las fichas personales</a>
         </div>
+      </div>
+      <div className="card">
+        <h3 className="section-title">Respaldo completo</h3>
+        <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+          Descarga un archivo con toda la información de la plataforma (fichas, estudiantes, grupos, materiales y cuentas de tutores, sin las claves). Úsalo como copia de seguridad periódica.
+        </p>
+        <p style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Nota: los archivos subidos en "Materiales" no se incluyen aquí, solo sus datos (nombre, quién lo subió, fecha).</p>
+        <a className="secondary-btn" href="/api/respaldo"><IconDownload size={14} /> Descargar respaldo completo (.json)</a>
       </div>
       <div className="card">
         <h3 className="section-title">Importar</h3>
