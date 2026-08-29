@@ -39,6 +39,15 @@ if (!SESSION_SECRET) {
   }
 }
 
+// Clave maestra de recuperación de cuentas (por ejemplo, si el director olvida su
+// clave). A diferencia de SESSION_SECRET, esta NUNCA se genera sola: si nadie la
+// configura a propósito como variable de entorno, la recuperación queda
+// desactivada (un valor aleatorio que nadie conoce no serviría para recuperar nada).
+const RECOVERY_SECRET = process.env.RECOVERY_SECRET || null;
+if (!RECOVERY_SECRET) {
+  console.warn("Aviso: no configuraste RECOVERY_SECRET. Si alguien olvida su clave (especialmente el director), no habrá forma de recuperarla desde la plataforma. Configúralo como variable de entorno y guárdalo en un lugar seguro fuera de la app.");
+}
+
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
@@ -74,6 +83,16 @@ const limitadorLogin = rateLimit({
   message: { error: "Demasiados intentos de inicio de sesión. Espera unos minutos e intenta de nuevo." },
 });
 
+// Límite mucho más estricto para la recuperación de cuentas: es la puerta más
+// sensible de toda la app (permite poner una clave nueva sin conocer la vieja).
+const limitadorRecuperacion = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiados intentos de recuperación. Espera una hora e intenta de nuevo." },
+});
+
 // Protección CSRF: token de un solo secreto por sesión, exigido en cada
 // petición que modifica datos (POST/PATCH/DELETE), salvo el login mismo.
 function requireCsrf(req, res, next) {
@@ -85,7 +104,7 @@ function requireCsrf(req, res, next) {
   next();
 }
 app.use("/api", (req, res, next) => {
-  if (req.path === "/login") return next();
+  if (req.path === "/login" || req.path === "/recuperar-clave") return next();
   requireCsrf(req, res, next);
 });
 
@@ -184,6 +203,35 @@ app.post("/api/login", limitadorLogin, asyncHandler(async (req, res) => {
     req.session.csrfToken = generarCsrfToken();
     res.json({ ...req.session.user, csrfToken: req.session.csrfToken });
   });
+}));
+
+// Recuperación de cuenta con la clave maestra (RECOVERY_SECRET). No requiere
+// sesión iniciada — es justamente para cuando alguien quedó fuera de su cuenta.
+app.post("/api/recuperar-clave", limitadorRecuperacion, asyncHandler(async (req, res) => {
+  if (!RECOVERY_SECRET) {
+    return res.status(503).json({ error: "La recuperación de cuentas no está configurada en este servidor. Pide a quien administra el hosting que configure la variable RECOVERY_SECRET." });
+  }
+  const { username, claveMaestra, nuevaClave } = req.body || {};
+  if (!username || !claveMaestra || !nuevaClave) {
+    return res.status(400).json({ error: "Faltan datos." });
+  }
+  const bufA = Buffer.from(String(claveMaestra));
+  const bufB = Buffer.from(RECOVERY_SECRET);
+  const coincide = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+  if (!coincide) {
+    return res.status(403).json({ error: "Clave maestra incorrecta." });
+  }
+  if (nuevaClave.length < 6) {
+    return res.status(400).json({ error: "La nueva clave debe tener al menos 6 caracteres." });
+  }
+  const usuarios = await leer(COL_USUARIOS, []);
+  const idx = usuarios.findIndex((u) => u.username === username.trim().toLowerCase());
+  if (idx === -1) return res.status(404).json({ error: "Ese usuario no existe." });
+  usuarios[idx].passwordHash = bcrypt.hashSync(nuevaClave, 10);
+  usuarios[idx].intentosFallidos = 0;
+  usuarios[idx].bloqueadoHasta = null;
+  await guardar(COL_USUARIOS, usuarios);
+  res.json({ ok: true, mensaje: `Clave de "${usuarios[idx].username}" actualizada. Ya puedes iniciar sesión con la nueva clave.` });
 }));
 
 app.post("/api/logout", (req, res) => {
