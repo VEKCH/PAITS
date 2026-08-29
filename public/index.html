@@ -203,11 +203,57 @@ function CampoSiNo({ label, value, onChange }) {
   );
 }
 
+function RecuperarClaveScreen({ onVolver }) {
+  const [username, setUsername] = useState("");
+  const [claveMaestra, setClaveMaestra] = useState("");
+  const [nuevaClave, setNuevaClave] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [mensaje, setMensaje] = useState("");
+
+  async function enviar(e) {
+    e.preventDefault();
+    setCargando(true); setError(""); setMensaje("");
+    try {
+      const res = await fetch("/api/recuperar-clave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, claveMaestra, nuevaClave }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo recuperar la cuenta.");
+      setMensaje(data.mensaje || "Clave actualizada correctamente.");
+      setUsername(""); setClaveMaestra(""); setNuevaClave("");
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+
+  return (
+    <div className="dapsi-app login-wrap">
+      <div className="login-card">
+        <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46, marginBottom: 18 }} />
+        <h1>Recuperar cuenta</h1>
+        <p>Solo funciona si quien administra el hosting configuró una clave maestra de recuperación.</p>
+        {error && <div className="error-box">{error}</div>}
+        {mensaje && <div className="note">{mensaje}</div>}
+        <form onSubmit={enviar}>
+          <label><span>Usuario</span><input value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
+          <label><span>Clave maestra de recuperación</span><input type="password" value={claveMaestra} onChange={(e) => setClaveMaestra(e.target.value)} required /></label>
+          <label><span>Nueva clave (mín. 6 caracteres)</span><input type="password" value={nuevaClave} onChange={(e) => setNuevaClave(e.target.value)} required /></label>
+          <button className="submit-btn" style={{ width: "100%", justifyContent: "center" }} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar clave"}</button>
+        </form>
+        <button type="button" className="link-btn" style={{ marginTop: 14 }} onClick={onVolver}>← Volver a iniciar sesión</button>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
+  const [vistaRecuperar, setVistaRecuperar] = useState(false);
   async function enviar(e) {
     e.preventDefault();
     setCargando(true); setError("");
@@ -217,6 +263,7 @@ function LoginScreen({ onLogin }) {
     } catch (e) { setError(e.message); }
     setCargando(false);
   }
+  if (vistaRecuperar) return <RecuperarClaveScreen onVolver={() => setVistaRecuperar(false)} />;
   return (
     <div className="dapsi-app login-wrap">
       <div className="login-card">
@@ -229,6 +276,7 @@ function LoginScreen({ onLogin }) {
           <label><span>Clave</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
           <button className="submit-btn" style={{ width: "100%", justifyContent: "center" }} disabled={cargando}>{cargando ? "Ingresando…" : "Ingresar"}</button>
         </form>
+        <button type="button" className="link-btn" style={{ marginTop: 14 }} onClick={() => setVistaRecuperar(true)}>¿Olvidaste tu clave?</button>
       </div>
     </div>
   );
