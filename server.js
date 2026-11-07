@@ -317,10 +317,6 @@ app.get("/api/fichas", requireAuth, asyncHandler(async (req, res) => {
 
 app.post("/api/fichas", requireAuth, asyncHandler(async (req, res) => {
   const datos = req.body || {};
-  if (!datos.urgencia || !["Crítico", "Urgente", "Normal"].includes(datos.urgencia)) {
-    return res.status(400).json({ error: "Debes indicar un nivel de urgencia válido (Crítico, Urgente o Normal)." });
-  }
-
   let tutorUsername, tutorNombre;
   if (req.session.user.role === "tutor") {
     tutorUsername = req.session.user.username;
@@ -348,7 +344,6 @@ app.post("/api/fichas", requireAuth, asyncHandler(async (req, res) => {
     situaciones: datos.situaciones || "",
     dificultades: datos.dificultades || {},
     seguimiento: datos.seguimiento || {},
-    urgencia: datos.urgencia,
     estadoProcedimiento: "Pendiente de revisión",
     procedimientoActual: "",
     notas: [],
@@ -360,12 +355,12 @@ app.post("/api/fichas", requireAuth, asyncHandler(async (req, res) => {
   res.status(201).json(req.session.user.role === "tutor" ? filtrarParaTutor(ficha) : ficha);
 }));
 
-// Solo el director administra estado / derivación / notas / urgencia final
+// Solo el director administra estado / derivación / notas
 app.patch("/api/fichas/:id", requireRole("director"), asyncHandler(async (req, res) => {
   const lista = await leer(COL_FICHAS, []);
   const idx = lista.findIndex((f) => f.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Ficha no encontrada." });
-  const permitido = ["estadoProcedimiento", "procedimientoActual", "urgencia", "notas"];
+  const permitido = ["estadoProcedimiento", "procedimientoActual", "notas"];
   for (const campo of permitido) {
     if (campo in req.body) lista[idx][campo] = req.body[campo];
   }
@@ -582,7 +577,6 @@ app.get("/api/estudiantes/:id", requireAuth, asyncHandler(async (req, res) => {
       const asist = f.asistencia.find((a) => (a.nombre || "").trim().toLowerCase() === nombreNorm);
       return { id: f.id, fecha: f.fecha, tutor: f.tutor, sesion: f.sesion, presente: asist ? asist.presente : null, situaciones: f.situaciones, temas: f.temas };
     });
-  const fichasPersonales = (await leer(COL_FICHAS_PERSONALES, [])).filter((fp) => fp.estudianteId === estudiante.id);
   const asis = await calcularAsistenciaPorNombre(estudiante.nombre);
   res.json({
     estudiante: esTutor ? filtrarEstudianteParaTutor(estudiante) : estudiante,
@@ -590,7 +584,6 @@ app.get("/api/estudiantes/:id", requireAuth, asyncHandler(async (req, res) => {
     sesionesTotales: asis.total,
     sesionesPresente: asis.presentes,
     sesiones,
-    fichasPersonales,
   });
 }));
 
@@ -661,61 +654,6 @@ app.delete("/api/estudiantes/:id", requireRole("director"), asyncHandler(async (
 }));
 
 
-/* ---------------- fichas personales (perfil del/de la estudiante, no de sesión) ---------------- */
-app.get("/api/fichas-personales", requireAuth, asyncHandler(async (req, res) => {
-  let lista = await leer(COL_FICHAS_PERSONALES, []);
-  if (req.session.user.role === "tutor") lista = lista.filter((fp) => fp.tutorUsername === req.session.user.username);
-  res.json(lista);
-}));
-
-app.post("/api/fichas-personales", requireAuth, asyncHandler(async (req, res) => {
-  const datos = req.body || {};
-  if (!datos.estudianteId) return res.status(400).json({ error: "Selecciona a qué estudiante corresponde esta ficha." });
-  const estudiante = (await leer(COL_ESTUDIANTES, [])).find((e) => e.id === datos.estudianteId);
-  if (!estudiante) return res.status(400).json({ error: "Estudiante no encontrado." });
-
-  let tutorUsername, tutorNombre;
-  if (req.session.user.role === "tutor") {
-    if (estudiante.tutorUsername !== req.session.user.username) {
-      return res.status(403).json({ error: "Solo puedes crear fichas personales de tus propios/as estudiantes." });
-    }
-    tutorUsername = req.session.user.username;
-    tutorNombre = req.session.user.nombre;
-  } else {
-    tutorUsername = estudiante.tutorUsername;
-    tutorNombre = estudiante.tutorNombre;
-  }
-
-  const ficha = {
-    id: nuevoId(),
-    estudianteId: estudiante.id,
-    estudianteNombre: estudiante.nombre,
-    tutorUsername,
-    tutorNombre,
-    fecha: datos.fecha || new Date().toISOString().slice(0, 10),
-    situacionAcademica: datos.situacionAcademica || "",
-    situacionesRelevantes: datos.situacionesRelevantes || "",
-    dificultades: datos.dificultades || {},
-    urgencia: ["Crítico", "Urgente", "Normal"].includes(datos.urgencia) ? datos.urgencia : "Normal",
-    creadoEn: new Date().toISOString(),
-  };
-  const lista = await leer(COL_FICHAS_PERSONALES, []);
-  lista.unshift(ficha);
-  await guardar(COL_FICHAS_PERSONALES, lista);
-  res.status(201).json(ficha);
-}));
-
-app.delete("/api/fichas-personales/:id", requireAuth, asyncHandler(async (req, res) => {
-  const lista = await leer(COL_FICHAS_PERSONALES, []);
-  const ficha = lista.find((fp) => fp.id === req.params.id);
-  if (!ficha) return res.status(404).end();
-  if (req.session.user.role === "tutor" && ficha.tutorUsername !== req.session.user.username) {
-    return res.status(403).json({ error: "No puedes eliminar la ficha personal de otro/a tutor/a." });
-  }
-  await guardar(COL_FICHAS_PERSONALES, lista.filter((fp) => fp.id !== req.params.id));
-  res.status(204).end();
-}));
-
 /* ---------------- materiales (documentos / presentaciones) ---------------- */
 // El contenido del archivo se guarda vía store.js: en disco si trabajas local,
 // o en MongoDB (GridFS) si configuraste MONGODB_URI — así los materiales
@@ -729,6 +667,20 @@ const uploadMaterial = multer({
   },
 });
 
+const MIME_POR_EXTENSION = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".odt": "application/vnd.oasis.opendocument.text",
+  ".odp": "application/vnd.oasis.opendocument.presentation",
+  ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+  ".txt": "text/plain",
+};
+
 app.get("/api/materiales", requireAuth, asyncHandler(async (req, res) => {
   res.json(await leer(COL_MATERIALES, []));
 }));
@@ -737,9 +689,13 @@ app.post("/api/materiales", requireRole("director"), uploadMaterial.single("arch
   if (!req.file) return res.status(400).json({ error: "Archivo no válido. Se aceptan documentos y presentaciones." });
   const nombreGuardado = `${nuevoId()}-${req.file.originalname.replace(/[^a-zA-Z0-9.\-_ ]/g, "_")}`;
   await store.guardarArchivoSubido(nombreGuardado, req.file.buffer);
+  const extension = path.extname(req.file.originalname).toLowerCase();
+  let nombreMostrar = (req.body.nombre || "").trim() || req.file.originalname;
+  if (!nombreMostrar.toLowerCase().endsWith(extension)) nombreMostrar += extension;
   const material = {
     id: nuevoId(),
-    nombre: req.body.nombre || req.file.originalname,
+    nombre: nombreMostrar,
+    extension,
     archivoGuardado: nombreGuardado,
     tamano: req.file.size,
     subidoPor: req.session.user.nombre,
@@ -756,7 +712,12 @@ app.get("/api/materiales/:id/descargar", requireAuth, asyncHandler(async (req, r
   if (!material) return res.status(404).json({ error: "Material no encontrado." });
   try {
     const buffer = await store.obtenerArchivoSubido(material.archivoGuardado);
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(material.nombre)}"`);
+    // Materiales antiguos pueden no tener "extension" guardada: se deduce del archivo.
+    const extension = (material.extension || path.extname(material.archivoGuardado) || "").toLowerCase();
+    let nombreDescarga = material.nombre || "material";
+    if (extension && !nombreDescarga.toLowerCase().endsWith(extension)) nombreDescarga += extension;
+    res.setHeader("Content-Type", MIME_POR_EXTENSION[extension] || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${nombreDescarga.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(nombreDescarga)}`);
     res.send(buffer);
   } catch (e) {
     res.status(404).json({ error: "No se pudo encontrar el contenido del archivo." });
@@ -830,8 +791,6 @@ function bloqueFichaSesion(f, incluirDerivacion) {
     parrafo(`¿Cómo se sintió el/la tutor/a?: ${f.seguimiento?.comoSeSintio || "—"}`),
     parrafo(`¿Recursos suficientes?: ${f.seguimiento?.recursosSuficientes || "—"} · ¿Manejó las dudas?: ${f.seguimiento?.logroManejarDudas || "—"} · ¿Necesita apoyo?: ${f.seguimiento?.necesitaApoyo || "—"}`),
     parrafo(`Comentarios al equipo coordinador: ${f.seguimiento?.comentariosCoordinador || "—"}`),
-    seccion("Clasificación"),
-    parrafo(`Urgencia: ${f.urgencia}`),
   ];
   if (incluirDerivacion) {
     bloque.push(
@@ -842,21 +801,6 @@ function bloqueFichaSesion(f, incluirDerivacion) {
     );
   }
   return bloque;
-}
-
-function bloqueFichaPersonal(fp) {
-  return [
-    tituloDoc(`Ficha personal — ${fp.estudianteNombre}`),
-    subtitulo(`Tutor/a: ${fp.tutorNombre} · Fecha: ${fp.fecha}`),
-    seccion("Situación académica"),
-    parrafo(fp.situacionAcademica),
-    seccion("Situaciones relevantes"),
-    parrafo(fp.situacionesRelevantes),
-    seccion("Dificultades detectadas"),
-    ...[].concat(listaDificultades(fp.dificultades)),
-    seccion("Clasificación"),
-    parrafo(`Urgencia: ${fp.urgencia}`),
-  ];
 }
 
 async function enviarDocx(res, children, nombreArchivo) {
@@ -877,15 +821,6 @@ app.get("/api/fichas/:id/word", requireAuth, asyncHandler(async (req, res) => {
   await enviarDocx(res, bloqueFichaSesion(f, esDirector), `ficha-sesion-${(f.tutor || "").replace(/\s+/g, "_")}-${f.fecha}.docx`);
 }));
 
-app.get("/api/fichas-personales/:id/word", requireAuth, asyncHandler(async (req, res) => {
-  const fp = (await leer(COL_FICHAS_PERSONALES, [])).find((x) => x.id === req.params.id);
-  if (!fp) return res.status(404).json({ error: "Ficha no encontrada." });
-  if (req.session.user.role === "tutor" && fp.tutorUsername !== req.session.user.username) {
-    return res.status(403).json({ error: "No puedes descargar la ficha de otro/a tutor/a." });
-  }
-  await enviarDocx(res, bloqueFichaPersonal(fp), `ficha-personal-${fp.estudianteNombre.replace(/\s+/g, "_")}-${fp.fecha}.docx`);
-}));
-
 app.get("/api/word/fichas", requireRole("director"), asyncHandler(async (req, res) => {
   const fichas = await leer(COL_FICHAS, []);
   if (fichas.length === 0) return res.status(400).json({ error: "No hay fichas de sesión para exportar." });
@@ -898,20 +833,8 @@ app.get("/api/word/fichas", requireRole("director"), asyncHandler(async (req, re
   await enviarDocx(res, children, "fichas-sesion-dapsi.docx");
 }));
 
-app.get("/api/word/fichas-personales", requireRole("director"), asyncHandler(async (req, res) => {
-  const fichas = await leer(COL_FICHAS_PERSONALES, []);
-  if (fichas.length === 0) return res.status(400).json({ error: "No hay fichas personales para exportar." });
-  let children = [];
-  fichas.forEach((fp, i) => {
-    const bloque = bloqueFichaPersonal(fp);
-    if (i > 0) bloque[0] = new Paragraph({ heading: HeadingLevel.HEADING_1, pageBreakBefore: true, spacing: { after: 120 }, children: [new TextRun({ text: `Ficha personal — ${fp.estudianteNombre}`, color: COLOR_ACENTO })] });
-    children = children.concat(bloque);
-  });
-  await enviarDocx(res, children, "fichas-personales-dapsi.docx");
-}));
-
 /* ---------------- Excel: exportar / plantilla / importar (solo director) ---------------- */
-const COLUMNAS_EXCEL = ["Tutor", "Fecha", "Jornada", "Modalidad", "Sesion", "Temas", "Situaciones", "Urgencia", "Estado", "ProcedimientoActual", "Presentes", "Total"];
+const COLUMNAS_EXCEL = ["Tutor", "Fecha", "Jornada", "Modalidad", "Sesion", "Temas", "Situaciones", "Estado", "ProcedimientoActual", "Presentes", "Total"];
 
 async function libroDesdeFilas(filas, nombreHoja) {
   const libro = new ExcelJS.Workbook();
@@ -932,7 +855,6 @@ app.get("/api/excel/exportar", requireRole("director"), asyncHandler(async (req,
     Sesion: f.sesion,
     Temas: f.temas,
     Situaciones: f.situaciones,
-    Urgencia: f.urgencia,
     Estado: f.estadoProcedimiento,
     ProcedimientoActual: f.procedimientoActual,
     Presentes: (f.asistencia || []).filter((a) => a.presente).length,
@@ -995,7 +917,6 @@ app.post("/api/excel/importar", requireRole("director"), uploadExcel.single("arc
       situaciones: fila.Situaciones || "",
       dificultades: {},
       seguimiento: {},
-      urgencia: ["Crítico", "Urgente", "Normal"].includes(fila.Urgencia) ? fila.Urgencia : "Normal",
       estadoProcedimiento: fila.Estado || "Pendiente de revisión",
       procedimientoActual: fila.ProcedimientoActual || "",
       notas: [],
