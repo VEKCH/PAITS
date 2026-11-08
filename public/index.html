@@ -27,6 +27,9 @@
   .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; }
   .wordmark { display: flex; align-items: center; gap: 12px; }
   .logo-ucsh { height: 42px; width: auto; flex-shrink: 0; }
+  .logo-pares { height: 44px; width: auto; flex-shrink: 0; }
+  .logo-sep { width: 1px; height: 34px; background: var(--line); flex-shrink: 0; }
+  .logos-login { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
   .header { border-bottom: 3px solid var(--gold); padding-bottom: 16px; }
   .wordmark h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 24px; margin: 0; letter-spacing: -0.01em; }
   .wordmark p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
@@ -86,6 +89,7 @@
   .tab-critico { background: var(--critico); }
   .tab-urgente { background: var(--urgente); }
   .tab-normal { background: var(--normal); }
+  .tab-base { background: var(--accent); }
   .caso-head { padding: 14px 16px 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; flex-wrap: wrap; }
   .caso-head-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .caso-tutor { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px; }
@@ -156,7 +160,6 @@ const IconDownload = (p) => <Ic {...p}><path d="M12 3v12"/><path d="m7 11 5 5 5-
 const IconUpload = (p) => <Ic {...p}><path d="M12 21V9"/><path d="m7 13 5-5 5 5"/><path d="M5 21h14"/></Ic>;
 
 const ESTADOS = ["Pendiente de revisión", "Derivado", "En proceso", "Resuelto", "Cerrado sin derivación"];
-const URGENCIA_ORDEN = { "Crítico": 0, "Urgente": 1, "Normal": 2 };
 
 let CSRF_TOKEN = null;
 
@@ -183,15 +186,8 @@ const initialForm = () => ({
   temas: "", situaciones: "",
   dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" },
   seguimiento: { comoSeSintio: "", recursosSuficientes: "", logroManejarDudas: "", necesitaApoyo: "", comentariosCoordinador: "" },
-  urgencia: "",
 });
 
-function UrgenciaBadge({ nivel }) {
-  const map = { "Crítico": { cls: "badge-critico", I: IconShield }, "Urgente": { cls: "badge-urgente", I: IconAlert }, "Normal": { cls: "badge-normal", I: IconCheck } };
-  const c = map[nivel] || map["Normal"];
-  const I = c.I;
-  return <span className={`badge ${c.cls}`}><I size={13} />{nivel}</span>;
-}
 function CampoSiNo({ label, value, onChange }) {
   return (
     <div className="campo-sn">
@@ -231,7 +227,11 @@ function RecuperarClaveScreen({ onVolver }) {
   return (
     <div className="dapsi-app login-wrap">
       <div className="login-card">
-        <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46, marginBottom: 18 }} />
+        <div className="logos-login">
+          <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46 }} />
+          <span className="logo-sep" />
+          <img src="/logo-pares.png" alt="PARES — Construyamos comunidad" style={{ height: 46 }} />
+        </div>
         <h1>Recuperar cuenta</h1>
         <p>Solo funciona si quien administra el hosting configuró una clave maestra de recuperación.</p>
         {error && <div className="error-box">{error}</div>}
@@ -267,7 +267,11 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="dapsi-app login-wrap">
       <div className="login-card">
-        <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46, marginBottom: 18 }} />
+        <div className="logos-login">
+          <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" style={{ height: 46 }} />
+          <span className="logo-sep" />
+          <img src="/logo-pares.png" alt="PARES — Construyamos comunidad" style={{ height: 46 }} />
+        </div>
         <h1>DAPSI</h1>
         <p>Inicia sesión para continuar</p>
         {error && <div className="error-box">{error}</div>}
@@ -315,23 +319,17 @@ function App() {
   const [materiales, setMateriales] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
-  const [fichasPersonales, setFichasPersonales] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [form, setForm] = useState(initialForm());
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [errorForm, setErrorForm] = useState("");
   const [expandido, setExpandido] = useState(null);
-  const [filtroUrgencia, setFiltroUrgencia] = useState("Todas");
   const [filtroEstado, setFiltroEstado] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
   const [agrupar, setAgrupar] = useState(true);
   const [notaTexto, setNotaTexto] = useState({});
   const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [tipoRegistro, setTipoRegistro] = useState("grupales");
-  const [tipoNuevaFicha, setTipoNuevaFicha] = useState("grupal");
-  const [expandidoPersonal, setExpandidoPersonal] = useState(null);
-  const [estudianteFoco, setEstudianteFoco] = useState(null);
 
   useEffect(() => {
     api("/api/me").then(setUser).catch(() => setUser(null));
@@ -340,10 +338,10 @@ function App() {
   const cargarTodo = useCallback(async () => {
     setCargando(true);
     try {
-      const [f, m, g, e, fp] = await Promise.all([
-        api("/api/fichas"), api("/api/materiales"), api("/api/grupos"), api("/api/estudiantes"), api("/api/fichas-personales"),
+      const [f, m, g, e] = await Promise.all([
+        api("/api/fichas"), api("/api/materiales"), api("/api/grupos"), api("/api/estudiantes"),
       ]);
-      setFichas(f); setMateriales(m); setGrupos(g); setEstudiantes(e); setFichasPersonales(fp);
+      setFichas(f); setMateriales(m); setGrupos(g); setEstudiantes(e);
       if (user && user.role === "director") setTutores(await api("/api/tutores"));
     } catch (e) {}
     setCargando(false);
@@ -375,7 +373,6 @@ function App() {
   async function enviarFicha(e) {
     e.preventDefault();
     setErrorForm("");
-    if (!form.urgencia) { setErrorForm("Selecciona un nivel de urgencia."); return; }
     if (user.role === "director" && !form.tutorUsername) { setErrorForm("Selecciona a qué tutor/a corresponde esta ficha."); return; }
     setEnviando(true);
     try {
@@ -404,31 +401,29 @@ function App() {
   }
 
   const fichasFiltradas = fichas
-    .filter((f) => filtroUrgencia === "Todas" || f.urgencia === filtroUrgencia)
     .filter((f) => filtroEstado === "Todos" || f.estadoProcedimiento === filtroEstado)
     .filter((f) => {
       if (!busqueda.trim()) return true;
       const t = busqueda.toLowerCase();
-      return (f.tutor || "").toLowerCase().includes(t) || (f.situaciones || "").toLowerCase().includes(t);
+      return (f.tutor || "").toLowerCase().includes(t) || (f.situaciones || "").toLowerCase().includes(t) || (f.asistencia || []).some((a) => (a.nombre || "").toLowerCase().includes(t));
     })
-    .sort((a, b) => URGENCIA_ORDEN[a.urgencia] - URGENCIA_ORDEN[b.urgencia] || new Date(b.creadoEn) - new Date(a.creadoEn));
+    .sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
 
   const stats = {
     total: fichas.length,
-    critico: fichas.filter((f) => f.urgencia === "Crítico").length,
-    urgente: fichas.filter((f) => f.urgencia === "Urgente").length,
     pendientes: fichas.filter((f) => f.estadoProcedimiento === "Pendiente de revisión").length,
+    enCurso: fichas.filter((f) => ["Derivado", "En proceso"].includes(f.estadoProcedimiento)).length,
+    resueltas: fichas.filter((f) => ["Resuelto", "Cerrado sin derivación"].includes(f.estadoProcedimiento)).length,
   };
 
   function FichaCard({ f }) {
-    const tabClass = f.urgencia === "Crítico" ? "tab-critico" : f.urgencia === "Urgente" ? "tab-urgente" : "tab-normal";
     const abierto = expandido === f.id;
     const esDirector = user.role === "director";
     const [procTexto, setProcTexto] = useState(f.procedimientoActual || "");
     useEffect(() => { setProcTexto(f.procedimientoActual || ""); }, [f.procedimientoActual]);
     return (
       <div className="caso-card">
-        <div className={`caso-tab ${tabClass}`} />
+        <div className="caso-tab tab-base" />
         <div className="caso-head" onClick={() => setExpandido(abierto ? null : f.id)}>
           <div className="caso-head-left">
             <span className="caso-tutor">{f.tutor || "Tutor/a sin nombre"} <span style={{ color: "var(--ink-soft)", fontWeight: 400, fontSize: 12.5 }}>· Sesión {f.sesion || "—"}</span></span>
@@ -436,7 +431,6 @@ function App() {
             <span className="caso-excerpt">{f.situaciones || f.temas || "Sin descripción registrada."}</span>
           </div>
           <div className="caso-head-right">
-            <UrgenciaBadge nivel={f.urgencia} />
             {f.porcentajeAsistencia !== null && f.porcentajeAsistencia !== undefined && <span className="asistencia-pill">Asistencia {f.porcentajeAsistencia}%</span>}
             {esDirector && <span className="estado-pill">{f.estadoProcedimiento}</span>}
             {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
@@ -465,9 +459,6 @@ function App() {
                   </div>
                   <div className="edit-row">
                     <select value={f.estadoProcedimiento} onChange={(e) => actualizarCaso(f.id, { estadoProcedimiento: e.target.value })}>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-                    <select value={f.urgencia} onChange={(e) => actualizarCaso(f.id, { urgencia: e.target.value })}>
-                      <option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
-                    </select>
                   </div>
                   <h4>Notas de seguimiento</h4>
                   {(f.notas||[]).length === 0 && <p style={{ color: "var(--ink-soft)" }}>Sin notas aún.</p>}
@@ -492,68 +483,14 @@ function App() {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
   }
 
-  const fichasPersonalesFiltradas = fichasPersonales
-    .filter((fp) => filtroUrgencia === "Todas" || fp.urgencia === filtroUrgencia)
-    .filter((fp) => {
-      if (!busqueda.trim()) return true;
-      const t = busqueda.toLowerCase();
-      return (
-        (fp.estudianteNombre || "").toLowerCase().includes(t) ||
-        (fp.tutorNombre || "").toLowerCase().includes(t) ||
-        (fp.motivoIngreso || "").toLowerCase().includes(t) ||
-        (fp.observaciones || "").toLowerCase().includes(t) ||
-        (fp.situacionAcademica || "").toLowerCase().includes(t)
-      );
-    })
-    .sort((a, b) => URGENCIA_ORDEN[a.urgencia] - URGENCIA_ORDEN[b.urgencia] || new Date(b.creadoEn) - new Date(a.creadoEn));
-
-  function agruparPersonalesPorTutor() {
-    const map = {};
-    fichasPersonalesFiltradas.forEach((fp) => { (map[fp.tutorNombre || "Sin tutor"] = map[fp.tutorNombre || "Sin tutor"] || []).push(fp); });
-    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
-  }
-
-  function PersonalCard({ fp }) {
-    const abierto = expandidoPersonal === fp.id;
-    const tabClass = fp.urgencia === "Crítico" ? "tab-critico" : fp.urgencia === "Urgente" ? "tab-urgente" : "tab-normal";
-    return (
-      <div className="caso-card">
-        <div className={`caso-tab ${tabClass}`} />
-        <div className="caso-head" onClick={() => setExpandidoPersonal(abierto ? null : fp.id)}>
-          <div className="caso-head-left">
-            <span className="caso-tutor">{fp.estudianteNombre}</span>
-            <span className="caso-meta">{fp.fecha} · {fp.tutorNombre}</span>
-            <span className="caso-excerpt">{fp.situacionesRelevantes || fp.situacionAcademica || "Sin detalle registrado."}</span>
-          </div>
-          <div className="caso-head-right">
-            <UrgenciaBadge nivel={fp.urgencia} />
-            {abierto ? <IconUp size={16} /> : <IconDown size={16} />}
-          </div>
-        </div>
-        {abierto && (
-          <div className="caso-body">
-            <h4>Situación académica</h4><p>{fp.situacionAcademica || "—"}</p>
-            <h4>Situaciones relevantes</h4><p>{fp.situacionesRelevantes || "—"}</p>
-            <a className="secondary-btn" style={{ marginTop: 6, marginBottom: 10 }} href={`/api/fichas-personales/${fp.id}/word`}><IconDownload size={14} /> Descargar en Word</a>
-            {user.role === "director" && (
-              <div>
-                <button type="button" className="link-btn" onClick={() => { setEstudianteFoco({ id: fp.estudianteId, ts: Date.now() }); setVista("estudiantes"); }}>
-                  Ver estado del caso de {fp.estudianteNombre} →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="dapsi-app">
       <div className="shell">
         <div className="header">
           <div className="wordmark">
             <img src="/logo-ucsh.png" alt="Universidad Católica Silva Henríquez" className="logo-ucsh" />
+            <span className="logo-sep" />
+            <img src="/logo-pares.png" alt="PARES — Construyamos comunidad" className="logo-pares" />
             <div><h1>DAPSI</h1><p>Acompañamiento Inicial en Trabajo Social</p></div>
           </div>
           <div className="userbox">
@@ -579,12 +516,6 @@ function App() {
 
         {vista === "form" && (
           <div>
-            <div className="filtros" style={{ marginBottom: 14 }}>
-              <button type="button" className={`toggle-btn ${tipoNuevaFicha === "grupal" ? "on" : ""}`} onClick={() => setTipoNuevaFicha("grupal")}>Ficha grupal (sesión)</button>
-              <button type="button" className={`toggle-btn ${tipoNuevaFicha === "personal" ? "on" : ""}`} onClick={() => setTipoNuevaFicha("personal")}>Ficha personal</button>
-            </div>
-
-            {tipoNuevaFicha === "grupal" ? (
           <form onSubmit={enviarFicha}>
             {errorForm && <div className="error-box">{errorForm}</div>}
             <div className="card">
@@ -679,52 +610,31 @@ function App() {
               <label className="field"><span>Comentarios o solicitudes al equipo coordinador</span><textarea value={form.seguimiento.comentariosCoordinador} onChange={(e) => setForm({ ...form, seguimiento: { ...form.seguimiento, comentariosCoordinador: e.target.value } })} /></label>
             </div>
 
-            <div className="card">
-              <h3 className="section-title">Clasificación de la solicitud</h3>
-              <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Selecciona manualmente el nivel de urgencia de este caso.</p>
-              <div className="dificultades-grid">
-                {["Normal", "Urgente", "Crítico"].map((op) => (
-                  <button type="button" key={op} onClick={() => setForm({ ...form, urgencia: op })}
-                    className="campo-sn" style={{ justifyContent: "center", cursor: "pointer", border: form.urgencia === op ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
-                    <UrgenciaBadge nivel={op} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <button type="submit" className="submit-btn" disabled={enviando}>
               {enviando ? <><IconLoader size={16} className="spin" /> Guardando…</> : <><IconSave size={16} /> Guardar ficha</>}
             </button>
 
             {resultado && (
               <div className="card" style={{ marginTop: 16 }}>
-                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Ficha guardada correctamente con nivel:</span>{" "}
-                <UrgenciaBadge nivel={resultado.urgencia} />
+                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Ficha guardada correctamente.</span>
                 <div><button type="button" className="link-btn" style={{ marginTop: 10 }} onClick={() => { setVista("dashboard"); setExpandido(resultado.id); }}>Ver en el panel →</button></div>
               </div>
             )}
           </form>
-            ) : (
-              <FormularioFichaPersonal user={user} estudiantes={estudiantes} onCreado={cargarTodo} />
-            )}
           </div>
         )}
 
         {vista === "dashboard" && (
           <div>
-            <div className="filtros" style={{ marginBottom: 14 }}>
-              <button type="button" className={`toggle-btn ${tipoRegistro === "grupales" ? "on" : ""}`} onClick={() => setTipoRegistro("grupales")}>Fichas grupales (sesión)</button>
-              <button type="button" className={`toggle-btn ${tipoRegistro === "personales" ? "on" : ""}`} onClick={() => setTipoRegistro("personales")}>Fichas personales</button>
-            </div>
-
-            {tipoRegistro === "grupales" ? (
               <>
                 <div className="stats-row">
-                  <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Casos totales</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{stats.critico}</div><div className="stat-label">Críticos</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{stats.urgente}</div><div className="stat-label">Urgentes</div></div>
+                  <div className="stat-box"><div className="stat-num">{stats.total}</div><div className="stat-label">Fichas totales</div></div>
                   {user.role === "director" ? (
-                    <div className="stat-box"><div className="stat-num">{stats.pendientes}</div><div className="stat-label">Pendientes de revisión</div></div>
+                    <>
+                      <div className="stat-box"><div className="stat-num">{stats.pendientes}</div><div className="stat-label">Pendientes de revisión</div></div>
+                      <div className="stat-box"><div className="stat-num">{stats.enCurso}</div><div className="stat-label">Derivados / en proceso</div></div>
+                      <div className="stat-box"><div className="stat-num">{stats.resueltas}</div><div className="stat-label">Resueltos / cerrados</div></div>
+                    </>
                   ) : (
                     <div className="stat-box"><div className="stat-num">{fichas.length ? Math.round((fichas.reduce((s, f) => s + (f.porcentajeAsistencia || 0), 0) / fichas.length) * 10) / 10 : 0}%</div><div className="stat-label">Asistencia promedio</div></div>
                   )}
@@ -732,9 +642,6 @@ function App() {
 
                 <div className="filtros">
                   <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por estudiante, tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
-                  <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
-                    <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
-                  </select>
                   {user.role === "director" && (
                     <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{ width: "auto" }}>
                       <option value="Todos">Todo estado</option>{ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -763,45 +670,13 @@ function App() {
                     })
                   : fichasFiltradas.map((f) => <FichaCard key={f.id} f={f} />)}
               </>
-            ) : (
-              <>
-                <div className="stats-row">
-                  <div className="stat-box"><div className="stat-num">{fichasPersonales.length}</div><div className="stat-label">Fichas personales</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--critico)" }}>{fichasPersonales.filter((fp) => fp.urgencia === "Crítico").length}</div><div className="stat-label">Críticas</div></div>
-                  <div className="stat-box"><div className="stat-num" style={{ color: "var(--urgente)" }}>{fichasPersonales.filter((fp) => fp.urgencia === "Urgente").length}</div><div className="stat-label">Urgentes</div></div>
-                  <div className="stat-box"><div className="stat-num">{new Set(fichasPersonales.map((fp) => fp.estudianteId)).size}</div><div className="stat-label">Estudiantes con ficha</div></div>
-                </div>
-
-                <div className="filtros">
-                  <div className="search-box"><IconSearch size={15} color="var(--ink-soft)" /><input placeholder="Buscar por estudiante, tutor/a o contenido…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
-                  <select value={filtroUrgencia} onChange={(e) => setFiltroUrgencia(e.target.value)} style={{ width: "auto" }}>
-                    <option value="Todas">Toda urgencia</option><option value="Crítico">Crítico</option><option value="Urgente">Urgente</option><option value="Normal">Normal</option>
-                  </select>
-                  {user.role === "director" && <button type="button" className={`toggle-btn ${agrupar ? "on" : ""}`} onClick={() => setAgrupar(!agrupar)}>Agrupar por tutor/a</button>}
-                </div>
-
-                {cargando && <div className="empty-state">Cargando…</div>}
-                {!cargando && fichasPersonalesFiltradas.length === 0 && (
-                  <div className="empty-state"><IconInbox size={30} style={{ marginBottom: 8, opacity: .5 }} /><h3>No hay fichas personales para mostrar</h3><p>{fichasPersonales.length === 0 ? 'Crea la primera desde la pestaña "Ficha personal".' : "Ajusta los filtros o la búsqueda."}</p></div>
-                )}
-
-                {!cargando && user.role === "director" && agrupar
-                  ? agruparPersonalesPorTutor().map(([tutor, lista]) => (
-                      <div key={tutor}>
-                        <div className="grupo-header"><span>{tutor}</span><span className="grupo-meta">{lista.length} ficha(s) personal(es)</span></div>
-                        {lista.map((fp) => <PersonalCard key={fp.id} fp={fp} />)}
-                      </div>
-                    ))
-                  : fichasPersonalesFiltradas.map((fp) => <PersonalCard key={fp.id} fp={fp} />)}
-              </>
-            )}
           </div>
         )}
 
         {vista === "materiales" && <MaterialesPanel user={user} materiales={materiales} recargar={cargarTodo} />}
         {vista === "grupos" && <GruposPanel user={user} grupos={grupos} tutores={tutores} recargar={cargarTodo} />}
         {vista === "estudiantes" && user.role === "director" && (
-          <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} fichasPersonales={fichasPersonales} recargar={cargarTodo} estudianteFoco={estudianteFoco} />
+          <EstudiantesPanel estudiantes={estudiantes} tutores={tutores} recargar={cargarTodo} />
         )}
         {vista === "tutores" && user.role === "director" && <TutoresPanel tutores={tutores} recargar={cargarTodo} />}
         {vista === "excel" && user.role === "director" && <ExcelPanel recargar={cargarTodo} />}
@@ -1022,93 +897,6 @@ function GruposPanel({ user, grupos, tutores, recargar }) {
   );
 }
 
-function FormularioFichaPersonal({ user, estudiantes, onCreado }) {
-  const vacio = { estudianteId: "", fecha: new Date().toISOString().slice(0, 10), situacionAcademica: "", situacionesRelevantes: "", dificultades: { academica: false, emocional: false, social: false, tramites: false, otra: false, otraTexto: "" }, urgencia: "Normal" };
-  const [form, setForm] = useState(vacio);
-  const [error, setError] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [ok, setOk] = useState(false);
-
-  async function enviar(e) {
-    e.preventDefault();
-    setError(""); setOk(false);
-    if (!form.estudianteId) { setError("Selecciona a qué estudiante corresponde esta ficha."); return; }
-    setEnviando(true);
-    try {
-      await api("/api/fichas-personales", { method: "POST", body: JSON.stringify(form) });
-      setForm({ ...vacio, estudianteId: form.estudianteId });
-      setOk(true);
-      onCreado();
-    } catch (e) { setError(e.message); }
-    setEnviando(false);
-  }
-
-  if (estudiantes.length === 0) {
-    return (
-      <div className="card">
-        <h3 className="section-title">Ficha personal</h3>
-        <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>
-          {user.role === "director"
-            ? 'Todavía no hay estudiantes registrados. Ve a la pestaña "Estudiantes" para registrar al menos uno antes de crear fichas personales.'
-            : "Todavía no tienes estudiantes asignados. Pide al equipo director que te asigne uno o más estudiantes."}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="card">
-      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>
-        A diferencia de la ficha grupal (que registra una tutoría puntual con asistencia), esta ficha es un perfil del/de la propio/a estudiante — se pueden crear varias en el tiempo para ir dejando registro de su evolución. Todas quedan disponibles en "Panel de casos → Fichas personales".
-      </p>
-      {error && <div className="error-box">{error}</div>}
-      {ok && <div className="note">Ficha personal guardada correctamente.</div>}
-      <form onSubmit={enviar}>
-        <div className="grid" style={{ marginBottom: 12 }}>
-          <label className="field"><span>Estudiante</span>
-            <select required value={form.estudianteId} onChange={(e) => setForm({ ...form, estudianteId: e.target.value })}>
-              <option value="">Seleccionar…</option>
-              {estudiantes.map((es) => <option key={es.id} value={es.id}>{es.nombre}{es.tutorNombre ? ` · ${es.tutorNombre}` : ""}</option>)}
-            </select>
-          </label>
-          <label className="field"><span>Fecha</span><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></label>
-        </div>
-        <label className="field" style={{ marginBottom: 12 }}>
-          <span>Situación académica</span>
-          <textarea value={form.situacionAcademica} onChange={(e) => setForm({ ...form, situacionAcademica: e.target.value })} placeholder="Ej: está con malas notas o situaciones relacionadas" />
-        </label>
-        <label className="field" style={{ marginBottom: 12 }}>
-          <span>Situaciones relevantes</span>
-          <textarea value={form.situacionesRelevantes} onChange={(e) => setForm({ ...form, situacionesRelevantes: e.target.value })} />
-        </label>
-
-        <div className="dificultades-grid" style={{ marginBottom: 12 }}>
-          <CampoSiNo label="Académica" value={form.dificultades.academica ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, academica: v === "Sí" } })} />
-          <CampoSiNo label="Emocional / psicosocial" value={form.dificultades.emocional ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, emocional: v === "Sí" } })} />
-          <CampoSiNo label="Social o de integración" value={form.dificultades.social ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, social: v === "Sí" } })} />
-          <CampoSiNo label="Desconocimiento de trámites/servicios" value={form.dificultades.tramites ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, tramites: v === "Sí" } })} />
-          <CampoSiNo label="Otra" value={form.dificultades.otra ? "Sí" : "No"} onChange={(v) => setForm({ ...form, dificultades: { ...form.dificultades, otra: v === "Sí" } })} />
-        </div>
-        {form.dificultades.otra && <label className="field" style={{ marginBottom: 12 }}><span>Detalle de "otra" dificultad</span><input value={form.dificultades.otraTexto} onChange={(e) => setForm({ ...form, dificultades: { ...form.dificultades, otraTexto: e.target.value } })} /></label>}
-
-        <label className="field" style={{ marginBottom: 14 }}><span>Nivel de urgencia de este perfil</span>
-          <div className="dificultades-grid">
-            {["Normal", "Urgente", "Crítico"].map((op) => (
-              <button type="button" key={op} onClick={() => setForm({ ...form, urgencia: op })}
-                className="campo-sn" style={{ justifyContent: "center", cursor: "pointer", border: form.urgencia === op ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
-                <UrgenciaBadge nivel={op} />
-              </button>
-            ))}
-          </div>
-        </label>
-
-        <button className="submit-btn" disabled={enviando}><IconSave size={16} /> {enviando ? "Guardando…" : "Guardar ficha personal"}</button>
-      </form>
-    </div>
-  );
-}
-
-
 function ImportarEstudiantesCard({ recargar }) {
   const [archivo, setArchivo] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -1161,7 +949,7 @@ function ImportarEstudiantesCard({ recargar }) {
   );
 }
 
-function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, estudianteFoco }) {
+function EstudiantesPanel({ estudiantes, tutores, recargar }) {
   const [nombre, setNombre] = useState(""); const [jornada, setJornada] = useState(""); const [carrera, setCarrera] = useState(""); const [tutorUsername, setTutorUsername] = useState("");
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -1171,12 +959,6 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
   const [detalle, setDetalle] = useState(null);
   const [notaTexto, setNotaTexto] = useState("");
 
-  useEffect(() => {
-    if (!estudianteFoco || !estudianteFoco.id) return;
-    setExpandido(estudianteFoco.id);
-    setDetalle(null);
-    api(`/api/estudiantes/${estudianteFoco.id}`).then(setDetalle).catch(() => {});
-  }, [estudianteFoco]);
 
   async function crear(e) {
     e.preventDefault(); setError("");
@@ -1260,7 +1042,7 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
 
       <div className="card">
         <h3 className="section-title">Registrar estudiante</h3>
-        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Este registro y el estado de cada caso solo los ve el equipo director. Los tutores solo ven, de forma liviana, a sus propios/as estudiantes asignados/as (para poder completarles una ficha personal).</p>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 0 }}>Este registro y el estado de cada caso solo los ve el equipo director; los tutores no tienen acceso a esta pestaña.</p>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={crear}>
           <div className="grid" style={{ marginBottom: 12 }}>
@@ -1314,7 +1096,6 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
           es={es}
           abierto={expandido === es.id}
           detalle={detalle}
-          fichasDe={fichasPersonales.filter((fp) => fp.estudianteId === es.id)}
           tutores={tutores}
           notaTexto={notaTexto}
           setNotaTexto={setNotaTexto}
@@ -1328,7 +1109,7 @@ function EstudiantesPanel({ estudiantes, tutores, fichasPersonales, recargar, es
   );
 }
 
-function EstudianteCard({ es, abierto, detalle, fichasDe, tutores, notaTexto, setNotaTexto, abrirDetalle, actualizar, agregarNota, eliminar }) {
+function EstudianteCard({ es, abierto, detalle, tutores, notaTexto, setNotaTexto, abrirDetalle, actualizar, agregarNota, eliminar }) {
   const [procTexto, setProcTexto] = useState(es.procedimientoActual || "");
   useEffect(() => { setProcTexto(es.procedimientoActual || ""); }, [es.procedimientoActual]);
   return (
@@ -1338,7 +1119,7 @@ function EstudianteCard({ es, abierto, detalle, fichasDe, tutores, notaTexto, se
         <div className="caso-head-left">
           <span className="caso-tutor">{es.nombre}</span>
           <span className="caso-meta">{es.jornada || "sin jornada"} · {es.tutorNombre} {es.carrera ? `· ${es.carrera}` : ""}</span>
-          <span className="caso-excerpt">{fichasDe.length} ficha(s) personal(es) · {es.estado}</span>
+          <span className="caso-excerpt">{es.estado}</span>
         </div>
         <div className="caso-head-right">
           {es.porcentajeAsistencia !== null ? <span className="asistencia-pill">Asistencia {es.porcentajeAsistencia}%</span> : <span className="estado-pill">Sin asistencia registrada</span>}
@@ -1358,13 +1139,6 @@ function EstudianteCard({ es, abierto, detalle, fichasDe, tutores, notaTexto, se
                   <p key={s.id} style={{ fontSize: 12.5 }}>
                     <strong>{s.fecha}</strong> — {s.presente ? "presente" : "ausente"} · {s.tutor}
                     {s.situaciones ? <><br />{s.situaciones}</> : ""}
-                  </p>
-                ))}
-                <h4 style={{ marginTop: 16 }}>Fichas personales ({fichasDe.length})</h4>
-                {fichasDe.length === 0 && <p style={{ color: "var(--ink-soft)" }}>Aún no hay fichas personales.</p>}
-                {fichasDe.map((fp) => (
-                  <p key={fp.id} style={{ fontSize: 12.5 }}>
-                    <strong>{fp.fecha}</strong> — {fp.observaciones || "sin detalle"}
                   </p>
                 ))}
               </div>
@@ -1443,7 +1217,6 @@ function ExcelPanel({ recargar }) {
         <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Descarga todas las fichas en un solo documento Word, con cada ficha en una página distinta.</p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <a className="secondary-btn" href="/api/word/fichas"><IconDownload size={14} /> Todas las fichas de sesión</a>
-          <a className="secondary-btn" href="/api/word/fichas-personales"><IconDownload size={14} /> Todas las fichas personales</a>
         </div>
       </div>
       <div className="card">
